@@ -81,7 +81,7 @@ class VideoRequestHandler(BaseHTTPRequestHandler):
             return
 
         has_changed = self.videoplayer.get_vod_fileindex() != fileindex or\
-            self.videoplayer.get_vod_download() != download
+                self.videoplayer.get_vod_download() != download
         if has_changed:
             # Notify the videoplayer (which will put the old VOD download back in normal mode).
             self.videoplayer.set_vod_fileindex(fileindex)
@@ -108,8 +108,7 @@ class VideoRequestHandler(BaseHTTPRequestHandler):
 
         self._logger.debug("requested range %d - %d", firstbyte, firstbyte + nbytes2send)
 
-        mimetype = mimetypes.guess_type(filename)[0]
-        if mimetype:
+        if mimetype := mimetypes.guess_type(filename)[0]:
             self.send_header('Content-Type', mimetype)
         self.send_header('Accept-Ranges', 'bytes')
 

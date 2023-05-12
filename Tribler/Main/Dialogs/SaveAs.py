@@ -223,10 +223,7 @@ class SaveAs(wx.Dialog):
             nrSelected = len(selected)
 
             if nrSelected > 0 and nrSelected < self.listCtrl.GetItemCount():
-                files = []
-                for index in selected:
-                    files.append(self.listCtrl.GetItem(index, 0).GetText())
-                return files
+                return [self.listCtrl.GetItem(index, 0).GetText() for index in selected]
         return None
 
     def UseTunnels(self):

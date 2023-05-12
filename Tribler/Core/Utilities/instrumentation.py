@@ -47,11 +47,7 @@ MAX_SAME_STACK_TIME = 60
 
 @decorator
 def synchronized(wrapped, instance, *args, **kwargs):
-    if instance is None:
-        owner = wrapped
-    else:
-        owner = instance
-
+    owner = wrapped if instance is None else instance
     lock = vars(owner).get('_synchronized_lock', None)
 
     if lock is None:
@@ -144,7 +140,7 @@ class WatchDog(Thread):
                         event.clear()
                         self.event_timestamps[name] = time()
                         if self.debug:
-                            self.printe("watchog %s is OK" % name)
+                            self.printe(f"watchog {name} is OK")
                     elif (self.event_timestamps[name] + self.event_timeouts[name]) < time():
                         self.printe("watchog %s *******TRIPPED!******, hasn't been set for %.4f secs." % (
                             name, time() - self.event_timestamps[name]))
@@ -176,12 +172,13 @@ class WatchDog(Thread):
 
             self.printe("Locals by frame, innermost last:")
             while frame:
-                self.printe("%s:%s %s:" % (frame.f_code.co_filename,
-                                           frame.f_lineno, frame.f_code.co_name))
+                self.printe(
+                    f"{frame.f_code.co_filename}:{frame.f_lineno} {frame.f_code.co_name}:"
+                )
                 for key, value in frame.f_locals.items():
                     value = repr_(value)
                     if len(value) > 500:
-                        value = value[:500] + "..."
+                        value = f"{value[:500]}..."
                         self.printe("| %12s = %s" % (key, value))
                 frame = frame.f_back
 

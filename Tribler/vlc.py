@@ -65,18 +65,12 @@ if sys.version_info[0] > 2:
     def str_to_bytes(s):
         """Translate string or bytes to bytes.
         """
-        if isinstance(s, str):
-            return bytes(s, DEFAULT_ENCODING)
-        else:
-            return s
+        return bytes(s, DEFAULT_ENCODING) if isinstance(s, str) else s
 
     def bytes_to_str(b):
         """Translate bytes to string.
         """
-        if isinstance(b, bytes):
-            return b.decode(DEFAULT_ENCODING)
-        else:
-            return b
+        return b.decode(DEFAULT_ENCODING) if isinstance(b, bytes) else b
 else:
     str = str
     unicode = unicode
@@ -86,18 +80,12 @@ else:
     def str_to_bytes(s):
         """Translate string or bytes to bytes.
         """
-        if isinstance(s, unicode):
-            return s.encode(DEFAULT_ENCODING)
-        else:
-            return s
+        return s.encode(DEFAULT_ENCODING) if isinstance(s, unicode) else s
 
     def bytes_to_str(b):
         """Translate bytes to unicode string.
         """
-        if isinstance(b, str):
-            return unicode(b, DEFAULT_ENCODING)
-        else:
-            return b
+        return unicode(b, DEFAULT_ENCODING) if isinstance(b, str) else b
 
 # Internal guard to prevent internal classes to be directly
 # instanciated.
@@ -156,7 +144,7 @@ def find_lib():
     elif sys.platform.startswith('darwin'):
         # FIXME: should find a means to configure path
         d = '/Applications/VLC.app/Contents/MacOS/'
-        p = d + 'lib/libvlc.dylib'
+        p = f'{d}lib/libvlc.dylib'
         if os.path.exists(p):
             dll = ctypes.CDLL(p)
             d += 'modules'
@@ -166,7 +154,7 @@ def find_lib():
             dll = ctypes.CDLL('libvlc.dylib')
 
     else:
-        raise NotImplementedError('%s: %s not supported' % (sys.argv[0], sys.platform))
+        raise NotImplementedError(f'{sys.argv[0]}: {sys.platform} not supported')
 
     return (dll, plugin_path)
 
@@ -258,9 +246,7 @@ def _Constructor(cls, ptr=_internal_guard):
     """
     if ptr == _internal_guard:
         raise VLCException("(INTERNAL) ctypes class. You should get references for this class through methods of the LibVLC API.")
-    if ptr is None or ptr == 0:
-        return None
-    return _Cobject(cls, ctypes.c_void_p(ptr))
+    return None if ptr is None or ptr == 0 else _Cobject(cls, ctypes.c_void_p(ptr))
 
 class _Cstruct(ctypes.Structure):
     """(INTERNAL) Base class for ctypes structures.
@@ -272,18 +258,16 @@ class _Cstruct(ctypes.Structure):
         return '\n'.join([self.__class__.__name__] + l)
 
     def __repr__(self):
-        return '%s.%s' % (self.__class__.__module__, self)
+        return f'{self.__class__.__module__}.{self}'
 
 class _Ctype(object):
     """(INTERNAL) Base class for ctypes.
     """
     @staticmethod
-    def from_param(this):  # not self
+    def from_param(this):    # not self
         """(INTERNAL) ctypes parameter conversion method.
         """
-        if this is None:
-            return None
-        return this._as_parameter_
+        return None if this is None else this._as_parameter_
 
 class ListPOINTER(object):
     """Just like a POINTER but accept a list of ctype as an argument.
@@ -313,9 +297,8 @@ def class_result(classname):
     """Errcheck function. Returns a function that creates the specified class.
     """
     def wrap_errcheck(result, func, arguments):
-        if result is None:
-            return None
-        return classname(result)
+        return None if result is None else classname(result)
+
     return wrap_errcheck
 
 # Wrapper for the opaque struct libvlc_log_t
@@ -1177,7 +1160,7 @@ cb = CallbackDecorators
 class AudioOutput(_Cstruct):
 
     def __str__(self):
-        return '%s(%s:%s)' % (self.__class__.__name__, self.name, self.description)
+        return f'{self.__class__.__name__}({self.name}:{self.description})'
 
 AudioOutput._fields_ = [  # recursive struct
     ('name',        ctypes.c_char_p),
@@ -1384,7 +1367,7 @@ class Event(_Cstruct):
 class ModuleDescription(_Cstruct):
 
     def __str__(self):
-        return '%s %s (%s)' % (self.__class__.__name__, self.shortname, self.name)
+        return f'{self.__class__.__name__} {self.shortname} ({self.name})'
 
 ModuleDescription._fields_ = [  # recursive struct
     ('name',      ctypes.c_char_p),
@@ -1546,7 +1529,7 @@ class Instance(_Ctype):
         if not args and plugin_path is not None:
              # no parameters passed, for win32 and MacOS,
              # specify the plugin_path if detected earlier
-            args = ['vlc', '--plugin-path=' + plugin_path]
+            args = ['vlc', f'--plugin-path={plugin_path}']
         if PYTHON3:
             args = [ str_to_bytes(a) for a in args ]
         return libvlc_new(len(args), args)
@@ -1618,8 +1601,7 @@ class Instance(_Ctype):
         @return: list of dicts {name:, description:, devices:}
         """
         r = []
-        head = libvlc_audio_output_list_get(self)
-        if head:
+        if head := libvlc_audio_output_list_get(self):
             i = head
             while i:
                 i = i.contents
@@ -2081,8 +2063,7 @@ class Media(_Ctype):
             if isinstance(i, Instance):
                 return i.media_new(*args[1:])
 
-        o = get_default_instance().media_new(*args)
-        return o
+        return get_default_instance().media_new(*args)
 
     def get_instance(self):
         return getattr(self, '_instance', None)
@@ -2110,8 +2091,9 @@ class Media(_Ctype):
         """
         mediaTrack_pp = ctypes.POINTER(MediaTrack)()
         n = libvlc_media_tracks_get(self, ctypes.byref(mediaTrack_pp))
-        info = ctypes.cast(ctypes.mediaTrack_pp, ctypes.POINTER(ctypes.POINTER(MediaTrack) * n))
-        return info
+        return ctypes.cast(
+            ctypes.mediaTrack_pp, ctypes.POINTER(ctypes.POINTER(MediaTrack) * n)
+        )
 
 
 
@@ -2457,8 +2439,7 @@ class MediaList(_Ctype):
             if isinstance(i, Instance):
                 return i.media_list_new(*args[1:])
 
-        o = get_default_instance().media_list_new(*args)
-        return o
+        return get_default_instance().media_list_new(*args)
 
     def get_instance(self):
         return getattr(self, '_instance', None)
@@ -2815,8 +2796,10 @@ class MediaPlayer(_Ctype):
         '''
         titleDescription_pp = ctypes.POINTER(TitleDescription)()
         n = libvlc_media_player_get_full_title_descriptions(self, ctypes.byref(titleDescription_pp))
-        info = ctypes.cast(ctypes.titleDescription_pp, ctypes.POINTER(ctypes.POINTER(TitleDescription) * n))
-        return info
+        return ctypes.cast(
+            ctypes.titleDescription_pp,
+            ctypes.POINTER(ctypes.POINTER(TitleDescription) * n),
+        )
 
     def get_full_chapter_descriptions(self, i_chapters_of_title):
         '''Get the full description of available chapters.
@@ -2826,8 +2809,10 @@ class MediaPlayer(_Ctype):
         '''
         chapterDescription_pp = ctypes.POINTER(ChapterDescription)()
         n = libvlc_media_player_get_full_chapter_descriptions(self, ctypes.byref(chapterDescription_pp))
-        info = ctypes.cast(ctypes.chapterDescription_pp, ctypes.POINTER(ctypes.POINTER(ChapterDescription) * n))
-        return info
+        return ctypes.cast(
+            ctypes.chapterDescription_pp,
+            ctypes.POINTER(ctypes.POINTER(ChapterDescription) * n),
+        )
 
     def video_get_size(self, num=0):
         """Get the video size in pixels as 2-tuple (width, height).
@@ -2838,7 +2823,7 @@ class MediaPlayer(_Ctype):
         if isinstance(r, tuple) and len(r) == 2:
             return r
         else:
-            raise VLCException('invalid video number (%s)' % (num,))
+            raise VLCException(f'invalid video number ({num})')
 
     def set_hwnd(self, drawable):
         """Set a Win32/Win64 API window handle (HWND).
@@ -2889,7 +2874,7 @@ class MediaPlayer(_Ctype):
         r = libvlc_video_get_cursor(self, num)
         if isinstance(r, tuple) and len(r) == 2:
             return r
-        raise VLCException('invalid video number (%s)' % (num,))
+        raise VLCException(f'invalid video number ({num})')
 
 
 
@@ -7037,12 +7022,12 @@ def libvlc_hex_version():
 def debug_callback(event, *args, **kwds):
     '''Example callback, useful for debugging.
     '''
-    l = ['event %s' % (event.type,)]
+    l = [f'event {event.type}']
     if args:
         l.extend(map(str, args))
     if kwds:
         l.extend(sorted('%s=%s' % t for t in kwds.items()))
-    print('Debug callback (%s)' % ', '.join(l))
+    print(f"Debug callback ({', '.join(l)})")
 
 if __name__ == '__main__':
 
@@ -7063,7 +7048,7 @@ if __name__ == '__main__':
             return ch
 
     def end_callback(event):
-        print('End of media stream (event %s)' % event.type)
+        print(f'End of media stream (event {event.type})')
         sys.exit(0)
 
     echo_position = False
@@ -7079,11 +7064,11 @@ if __name__ == '__main__':
         try:
             print('Build date: %s (%#x)' % (build_date, hex_version()))
             print('LibVLC version: %s (%#x)' % (bytes_to_str(libvlc_get_version()), libvlc_hex_version()))
-            print('LibVLC compiler: %s' % bytes_to_str(libvlc_get_compiler()))
+            print(f'LibVLC compiler: {bytes_to_str(libvlc_get_compiler())}')
             if plugin_path:
-                print('Plugin path: %s' % plugin_path)
+                print(f'Plugin path: {plugin_path}')
         except:
-            print('Error: %s' % sys.exc_info()[1])
+            print(f'Error: {sys.exc_info()[1]}')
 
     if sys.argv[1:] and sys.argv[1] not in ('-h', '--help'):
 
@@ -7136,19 +7121,18 @@ if __name__ == '__main__':
             try:
                 print_version()
                 media = player.get_media()
-                print('State: %s' % player.get_state())
-                print('Media: %s' % bytes_to_str(media.get_mrl()))
-                print('Track: %s/%s' % (player.video_get_track(), player.video_get_track_count()))
-                print('Current time: %s/%s' % (player.get_time(), media.get_duration()))
-                print('Position: %s' % player.get_position())
+                print(f'State: {player.get_state()}')
+                print(f'Media: {bytes_to_str(media.get_mrl())}')
+                print(f'Track: {player.video_get_track()}/{player.video_get_track_count()}')
+                print(f'Current time: {player.get_time()}/{media.get_duration()}')
+                print(f'Position: {player.get_position()}')
                 print('FPS: %s (%d ms)' % (player.get_fps(), mspf()))
-                print('Rate: %s' % player.get_rate())
-                print('Video size: %s' % str(player.video_get_size(0)))  # num=0
-                print('Scale: %s' % player.video_get_scale())
-                print('Aspect ratio: %s' % player.video_get_aspect_ratio())
-               #print('Window:' % player.get_hwnd()
+                print(f'Rate: {player.get_rate()}')
+                print(f'Video size: {str(player.video_get_size(0))}')
+                print(f'Scale: {player.video_get_scale()}')
+                print(f'Aspect ratio: {player.video_get_aspect_ratio()}')
             except Exception:
-                print('Error: %s' % sys.exc_info()[1])
+                print(f'Error: {sys.exc_info()[1]}')
 
         def sec_forward():
             """Go forward one sec"""
@@ -7171,7 +7155,7 @@ if __name__ == '__main__':
             print('Single-character commands:')
             for k, m in sorted(keybindings.items()):
                 m = (m.__doc__ or m.__name__).splitlines()[0]
-                print('  %s: %s.' % (k, m.rstrip('.')))
+                print(f"  {k}: {m.rstrip('.')}.")
             print('0-9: go to that fraction of the movie')
 
         def quit_app():

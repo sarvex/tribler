@@ -28,13 +28,13 @@ INIT_FUNC_DICT = {
 
 
 def __get_default():
-    category = {}
-    category["name"] = ""
-    category["keywords"] = {}
-    category["suffix"] = []
-    category["minfilesize"] = 0
-    category["maxfilesize"] = -1
-    return category
+    return {
+        "name": "",
+        "keywords": {},
+        "suffix": [],
+        "minfilesize": 0,
+        "maxfilesize": -1,
+    }
 
 
 def getCategoryInfo(filename):

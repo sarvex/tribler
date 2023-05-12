@@ -36,16 +36,12 @@ class ABCTaskBarIcon(wx.TaskBarIcon):
     def updateTooltip(self, download_speed=0, upload_speed=0):
         if not WIN32:
             return
-        self.tooltip = "Down: %s, Up: %s" % (speed_format(download_speed), speed_format(upload_speed))
+        self.tooltip = f"Down: {speed_format(download_speed)}, Up: {speed_format(upload_speed)}"
         self.SetIcon(self.icon, self.tooltip)
 
     def updateIcon(self, iconifying=False):
-        remove = True
-
         mintray = self.utility.read_config('mintray')
-        if (mintray >= 2) or ((mintray >= 1) and iconifying):
-            remove = False
-
+        remove = mintray < 2 and (mintray < 1 or not iconifying)
         if remove and self.IsIconInstalled():
             self.RemoveIcon()
         elif not remove and not self.IsIconInstalled():
@@ -110,8 +106,6 @@ class ABCTaskBarIcon(wx.TaskBarIcon):
                     if len(win32gui.GetWindowText(handle)) == 0:
                         self._chwnd = handle
                         break
-                if not hasattr(self, "_chwnd"):
-                    pass
             except:
                 pass
         return self._chwnd

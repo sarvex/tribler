@@ -72,12 +72,11 @@ class ChannelManager(BaseManager):
     def refresh(self, channel=None):
         if channel:
             # copy torrents if channel stays the same
-            if channel == self.list.channel:
-                if self.list.channel.torrents:
-                    if channel.torrents:
-                        channel.torrents.update(self.list.channel.torrents)
-                    else:
-                        channel.torrents = self.list.channel.torrents
+            if channel == self.list.channel and self.list.channel.torrents:
+                if channel.torrents:
+                    channel.torrents.update(self.list.channel.torrents)
+                else:
+                    channel.torrents = self.list.channel.torrents
 
             self.list.Reset()
             self.list.SetChannel(channel)
@@ -154,7 +153,7 @@ class ChannelManager(BaseManager):
 
         # sometimes a channel has some torrents in the torrents variable, merge them here
         if self.list.channel.torrents:
-            remoteTorrents = set(torrent.infohash for torrent in self.list.channel.torrents)
+            remoteTorrents = {torrent.infohash for torrent in self.list.channel.torrents}
             for i in xrange(len(torrents), 0, -1):
                 if torrents[i - 1].infohash in remoteTorrents:
                     torrents.pop(i - 1)
@@ -168,30 +167,30 @@ class ChannelManager(BaseManager):
 
     @forceDBThread
     def refresh_partial(self, ids):
-        if self.list.channel:
-            id_data = {}
-            for id in ids:
-                if isinstance(id, str) and len(id) == 20:
-                    id_data[id] = self.channelsearch_manager.getTorrentFromChannel(self.list.channel, id)
+        if not self.list.channel:
+            return
+        id_data = {}
+        for id in ids:
+            if isinstance(id, str) and len(id) == 20:
+                id_data[id] = self.channelsearch_manager.getTorrentFromChannel(self.list.channel, id)
+            else:
+                id_data[id] = self.channelsearch_manager.getPlaylist(self.list.channel, id)
+
+        def do_gui():
+            for id, data in id_data.iteritems():
+                if data:
+                    self.list.RefreshData(id, data)
                 else:
-                    id_data[id] = self.channelsearch_manager.getPlaylist(self.list.channel, id)
+                    self.list.RemoveItem(id)
 
-            def do_gui():
-                for id, data in id_data.iteritems():
-                    if data:
-                        self.list.RefreshData(id, data)
-                    else:
-                        self.list.RemoveItem(id)
-
-            wx.CallAfter(do_gui)
+        wx.CallAfter(do_gui)
 
     @forceWxThread
     def downloadStarted(self, infohash):
         if self.list.InList(infohash):
             item = self.list.GetItem(infohash)
 
-            torrent_details = item.GetExpandedPanel()
-            if torrent_details:
+            if torrent_details := item.GetExpandedPanel():
                 torrent_details.DownloadStarted()
             else:
                 item.DoExpand()
@@ -206,20 +205,22 @@ class ChannelManager(BaseManager):
 
     def channelUpdated(self, channel_id, stateChanged=False, modified=False):
         _channel = self.list.channel
-        if _channel and _channel == channel_id:
-            if _channel.isFavorite() or _channel.isMyChannel():
+        if (
+            _channel
+            and _channel == channel_id
+            and (_channel.isFavorite() or _channel.isMyChannel())
+        ):
                 # only update favorite or mychannel
-                if modified:
-                    self.reload(channel_id)
-                else:
-                    if self.list.ShouldGuiUpdate():
-                        self._refresh_list(stateChanged)
-                    else:
-                        key = 'COMPLETE_REFRESH'
-                        if stateChanged:
-                            key += '_STATE'
-                        self.dirtyset.add(key)
-                        self.list.dirty = True
+            if modified:
+                self.reload(channel_id)
+            elif self.list.ShouldGuiUpdate():
+                self._refresh_list(stateChanged)
+            else:
+                key = 'COMPLETE_REFRESH'
+                if stateChanged:
+                    key += '_STATE'
+                self.dirtyset.add(key)
+                self.list.dirty = True
 
     def playlistCreated(self, channel_id):
         if self.list.channel == channel_id:
@@ -320,7 +321,11 @@ class SelectedChannelList(GenericSearchList):
     def _special_icon(self, item):
         if not isinstance(item, PlaylistItem) and self.channel:
             if self.channel.isFavorite():
-                return self.favorite, self.normal, "This torrent is part of one of your favorite channels, %s" % self.channel.name
+                return (
+                    self.favorite,
+                    self.normal,
+                    f"This torrent is part of one of your favorite channels, {self.channel.name}",
+                )
             else:
                 return self.normal, self.favorite, "This torrent is not part of one of your favorite channels"
 
@@ -377,11 +382,7 @@ class SelectedChannelList(GenericSearchList):
         self.Thaw()
 
     def SetIds(self, channel):
-        if channel:
-            self.my_channel = channel.isMyChannel()
-        else:
-            self.my_channel = False
-
+        self.my_channel = channel.isMyChannel() if channel else False
         # Always switch to page 1 after new id
         if self.notebook.GetPageCount() > 0:
             self.notebook.SetSelection(0)
@@ -435,8 +436,9 @@ class SelectedChannelList(GenericSearchList):
             data = [(playlist.id, [playlist.name, playlist.nr_torrents, 0, 0, 0, 0], playlist, PlaylistItem, index)
                     for index, playlist in enumerate(playlists)]
 
-            shouldDrag = len(playlists) > 0 and (self.channel.iamModerator or self.channel.isOpen())
-            if shouldDrag:
+            if shouldDrag := len(playlists) > 0 and (
+                self.channel.iamModerator or self.channel.isOpen()
+            ):
                 data += [(torrent.infohash, [torrent.name, torrent.length, self.category_names[torrent.category],
                                              torrent.num_seeders, torrent.num_leechers, 0, None],
                           torrent, DragItem) for torrent in torrents]
@@ -455,7 +457,7 @@ class SelectedChannelList(GenericSearchList):
 
             if self.channel and self.channel.isOpen():
                 message = 'As this is an "open" channel, '\
-                          'you can add your own torrents to share them with others in this channel'
+                              'you can add your own torrents to share them with others in this channel'
                 self.list.ShowMessage(message, header=header)
             else:
                 self.list.ShowMessage(header)
@@ -471,11 +473,10 @@ class SelectedChannelList(GenericSearchList):
 
         if nr == 1:
             self.header.SetSubTitle(header + ' %d torrent' % nr)
+        elif self.channel and self.channel.isFavorite():
+            self.header.SetSubTitle(header + ' %d torrents' % nr)
         else:
-            if self.channel and self.channel.isFavorite():
-                self.header.SetSubTitle(header + ' %d torrents' % nr)
-            else:
-                self.header.SetSubTitle(header + ' %d torrents' % nr)
+            self.header.SetSubTitle(header + ' %d torrents' % nr)
 
     @forceWxThread
     def RefreshData(self, key, data):
@@ -502,7 +503,7 @@ class SelectedChannelList(GenericSearchList):
             detailspanel = self.guiutility.SetBottomSplitterWindow(PlaylistDetails)
             detailspanel.showPlaylist(item.original_data)
             item.expandedPanel = detailspanel
-        elif isinstance(item, TorrentListItem) or isinstance(item, ThumbnailListItem):
+        elif isinstance(item, (TorrentListItem, ThumbnailListItem)):
             detailspanel = self.guiutility.SetBottomSplitterWindow(TorrentDetails)
             detailspanel.setTorrent(item.original_data)
             item.expandedPanel = detailspanel
@@ -528,9 +529,7 @@ class SelectedChannelList(GenericSearchList):
 
     @warnWxThread
     def ResetBottomWindow(self):
-        _channel = self.channel
-
-        if _channel:
+        if _channel := self.channel:
             detailspanel = self.guiutility.SetBottomSplitterWindow(SelectedchannelInfoPanel)
             num_items = len(self.list.raw_data) if self.list.raw_data else 1
             detailspanel.Set(num_items, _channel.my_vote, self.state, self.iamModerator)
@@ -620,12 +619,9 @@ class SelectedChannelList(GenericSearchList):
             manager = self.activityList.GetManager()
             manager.new_activity()
 
-        else:  # maybe channel_id is a infohash
-            panel = self.list.GetExpandedItem()
-            if panel:
-                torDetails = panel.GetExpandedPanel()
-                if torDetails:
-                    torDetails.OnCommentCreated(channel_id)
+        elif panel := self.list.GetExpandedItem():
+            if torDetails := panel.GetExpandedPanel():
+                torDetails.OnCommentCreated(channel_id)
 
     @warnWxThread
     def OnModificationCreated(self, channel_id):
@@ -633,12 +629,9 @@ class SelectedChannelList(GenericSearchList):
             manager = self.activityList.GetManager()
             manager.new_activity()
 
-        else:  # maybe channel_id is a channeltorrent_id
-            panel = self.list.GetExpandedItem()
-            if panel:
-                torDetails = panel.GetExpandedPanel()
-                if torDetails:
-                    torDetails.OnModificationCreated(channel_id)
+        elif panel := self.list.GetExpandedItem():
+            if torDetails := panel.GetExpandedPanel():
+                torDetails.OnModificationCreated(channel_id)
 
     @warnWxThread
     def OnModerationCreated(self, channel_id):
@@ -648,10 +641,8 @@ class SelectedChannelList(GenericSearchList):
 
     @warnWxThread
     def OnMarkingCreated(self, channeltorrent_id):
-        panel = self.list.GetExpandedItem()
-        if panel:
-            torDetails = panel.GetExpandedPanel()
-            if torDetails:
+        if panel := self.list.GetExpandedItem():
+            if torDetails := panel.GetExpandedPanel():
                 torDetails.OnMarkingCreated(channeltorrent_id)
 
     @warnWxThread
@@ -667,11 +658,7 @@ class SelectedChannelList(GenericSearchList):
                 start = new_filter.find("category='")
                 start = start + 10 if start >= 0 else -1
                 end = new_filter.find("'", start)
-                if start == -1 or end == -1:
-                    category = None
-                else:
-                    category = new_filter[start:end]
-
+                category = None if start == -1 or end == -1 else new_filter[start:end]
                 self.categoryfilter = category
                 new_filter = new_filter[:start - 10] + new_filter[end + 1:]
             except:
@@ -709,10 +696,9 @@ class SelectedChannelList(GenericSearchList):
             if not splitter.IsSplit():
                 sashpos = getattr(self.parent, 'sashpos', -185)
                 splitter.SplitHorizontally(topwindow, bottomwindow, sashpos)
-        else:
-            if splitter.IsSplit():
-                self.parent.sashpos = splitter.GetSashPosition()
-                splitter.Unsplit(bottomwindow)
+        elif splitter.IsSplit():
+            self.parent.sashpos = splitter.GetSashPosition()
+            splitter.Unsplit(bottomwindow)
 
     def StartDownload(self, torrent):
         def do_gui(delayedResult):
@@ -854,11 +840,13 @@ class Playlist(SelectedChannelList):
     def _special_icon(self, item):
         if not isinstance(item, PlaylistItem) and self.playlist and self.playlist.channel:
             if self.playlist.channel.isFavorite():
-                return self.favorite, self.normal, "This torrent is part of one of your favorite channels, %s" % self.playlist.channel.name
+                return (
+                    self.favorite,
+                    self.normal,
+                    f"This torrent is part of one of your favorite channels, {self.playlist.channel.name}",
+                )
             else:
                 return self.normal, self.favorite, "This torrent is not part of one of your favorite channels"
-        else:
-            pass
 
     def GetManager(self):
         if getattr(self, 'manager', None) is None:
@@ -968,8 +956,7 @@ class ManageChannelFilesManager(BaseManager):
 
     def startDownloadFromUrl(self, url, *args, **kwargs):
         try:
-            tdef = TorrentDef.load_from_url(url)
-            if tdef:
+            if tdef := TorrentDef.load_from_url(url):
                 return self.AddTDef(tdef)
         except:
             print_exc()
@@ -1007,7 +994,7 @@ class ManageChannelFilesManager(BaseManager):
         if tdef:
             self.channelsearch_manager.createTorrentFromDef(self.channel.id, tdef)
             if not self.channel.isMyChannel():
-                notification = "New torrent added to %s's channel" % self.channel.name
+                notification = f"New torrent added to {self.channel.name}'s channel"
             else:
                 notification = 'New torrent added to My Channel'
             self.guiutility.Notify(notification, icon=wx.ART_INFORMATION)
@@ -1161,8 +1148,10 @@ class ManageChannel(AbstractDetails):
         header = ""
         self.overviewheader = self._add_header(self.overviewpage, vSizer, header, spacer=10)
 
-        text = "Channels can be used to spread torrents to other Tribler users. "
-        text += "If a channel provides other Tribler users with original or popular content, then they might mark your channel as one of their favorites. "
+        text = (
+            "Channels can be used to spread torrents to other Tribler users. "
+            + "If a channel provides other Tribler users with original or popular content, then they might mark your channel as one of their favorites. "
+        )
         text += "This will help to promote your channel, because the number of users which have marked a channel as one of their favorites is used to calculate popularity. "
         text += "Additionally, when another Tribler user marks your channel as a favorite they help you distribute all the .torrent files.\n\n"
         text += "Currently three options exist to spread torrents. "
@@ -1221,13 +1210,17 @@ class ManageChannel(AbstractDetails):
         header = "Community Settings"
         self._add_header(self.settingspage, vSizer, header, spacer=10)
 
-        text = "Tribler allows you to involve your community. "
-        text += "You as a channel-owner have the option to define the openness of your community. "
+        text = (
+            "Tribler allows you to involve your community. "
+            + "You as a channel-owner have the option to define the openness of your community. "
+        )
         text += "By choosing a more open setting, other users are allowed to do more.\n"
         vSizer.Add(wx.StaticText(self.settingspage, -1, text), 0, wx.EXPAND | wx.ALL, 10)
 
-        text = "Currently three configurations exist:\n"
-        text += "- Open, only you can define playlists and delete torrents. Other users can do everything else, ie add torrents, categorize torrents, comment etc.\n"
+        text = (
+            "Currently three configurations exist:\n"
+            + "- Open, only you can define playlists and delete torrents. Other users can do everything else, ie add torrents, categorize torrents, comment etc.\n"
+        )
         text += "- Semi-Open, only you can add new .torrents. Other users can download and comment on them.\n"
         text += "- Closed, only you can add new .torrents. Other users can only download them."
         vSizer.Add(wx.StaticText(self.settingspage, -1, text), 0, wx.EXPAND | wx.ALL, 10)
@@ -1263,8 +1256,10 @@ class ManageChannel(AbstractDetails):
         header = "Rss import"
         self._add_header(self.managepage, vSizer, header, spacer=10)
 
-        text = "Rss feeds are periodically checked for new .torrent files. \nFor each item in the rss feed a .torrent file should be present in either:\n\n"
-        text += "\tThe link element\n"
+        text = (
+            "Rss feeds are periodically checked for new .torrent files. \nFor each item in the rss feed a .torrent file should be present in either:\n\n"
+            + "\tThe link element\n"
+        )
         text += "\tA src attribute\n"
         text += "\tA url attribute"
         manageText = wx.StaticText(self.managepage, -1, text)
@@ -1482,10 +1477,14 @@ class ManageChannel(AbstractDetails):
         self.SetChannel(channel)
 
     def GetPage(self, notebook, title):
-        for i in range(notebook.GetPageCount()):
-            if notebook.GetPageText(i) == title:
-                return i
-        return None
+        return next(
+            (
+                i
+                for i in range(notebook.GetPageCount())
+                if notebook.GetPageText(i) == title
+            ),
+            None,
+        )
 
     def AddPage(self, notebook, page, title, index):
         curindex = self.GetPage(notebook, title)
@@ -1541,20 +1540,18 @@ class ManageChannel(AbstractDetails):
         wx.CallLater(5000, button.Enable, True)
 
     def CreateJoinChannelFile(self):
-        f = open('joinchannel', 'wb')
-        f.write(self.channel.dispersy_cid)
-        f.close()
+        with open('joinchannel', 'wb') as f:
+            f.write(self.channel.dispersy_cid)
 
     def Show(self, show=True):
-        if not show:
-            if self.IsChanged():
-                dlg = wx.MessageDialog(
-                    None,
-                    'Do you want to save your changes made to this channel?',
-                    'Save changes?',
-                    wx.YES_NO | wx.YES_DEFAULT | wx.ICON_QUESTION)
-                if dlg.ShowModal() == wx.ID_YES:
-                    self.Save()
+        if not show and self.IsChanged():
+            dlg = wx.MessageDialog(
+                None,
+                'Do you want to save your changes made to this channel?',
+                'Save changes?',
+                wx.YES_NO | wx.YES_DEFAULT | wx.ICON_QUESTION)
+            if dlg.ShowModal() == wx.ID_YES:
+                self.Save()
 
         AbstractDetails.Show(self, show)
 
@@ -1645,8 +1642,10 @@ class ManageChannelFilesList(List):
     def SetData(self, data):
         List.SetData(self, data)
 
-        data = [(torrent.infohash, [torrent.name, torrent.time_stamp], torrent) for torrent in data]
-        if len(data) > 0:
+        if data := [
+            (torrent.infohash, [torrent.name, torrent.time_stamp], torrent)
+            for torrent in data
+        ]:
             self.list.SetData(data)
         else:
             self.list.ShowMessage('You are currently not sharing any torrents in your channel.')
@@ -1735,9 +1734,16 @@ class ManageChannelPlaylistList(ManageChannelFilesList):
     def SetData(self, data):
         List.SetData(self, data)
 
-        data = [(playlist.id, [playlist.name, playlist.nr_torrents, 0, 0], playlist, PlaylistItem, index)
-                for index, playlist in enumerate(data)]
-        if len(data) > 0:
+        if data := [
+            (
+                playlist.id,
+                [playlist.name, playlist.nr_torrents, 0, 0],
+                playlist,
+                PlaylistItem,
+                index,
+            )
+            for index, playlist in enumerate(data)
+        ]:
             self.list.SetData(data)
         else:
             self.list.ShowMessage('You currently do not have any playlists in your channel.')
@@ -1760,8 +1766,7 @@ class ManageChannelPlaylistList(ManageChannelFilesList):
         return MyChannelPlaylist(item, self.OnEdit, self.canDelete, self.OnSave, self.OnRemoveSelected, item.original_data)
 
     def OnCollapse(self, item, panel, from_expand):
-        playlist_id = item.original_data.get('id', False)
-        if playlist_id:
+        if playlist_id := item.original_data.get('id', False):
             if panel.IsChanged():
                 dlg = wx.MessageDialog(
                     None,
@@ -1831,7 +1836,7 @@ class ManageChannelPlaylistList(ManageChannelFilesList):
 
         selected_infohashes = [data.infohash for data in dlg.selected]
         dlg.available = [data for data in available if data.infohash not in selected_infohashes]
-        dlg.not_in_playlist = [data for data in not_in_playlist]
+        dlg.not_in_playlist = list(not_in_playlist)
         dlg.filtered_available = None
 
         selected_names = [torrent.name for torrent in dlg.selected]
@@ -1920,10 +1925,7 @@ class ManageChannelPlaylistList(ManageChannelFilesList):
         dlg = event.GetEventObject().GetParent()
         selected = dlg.selectedList.GetSelections()
 
-        to_be_removed = []
-        for i in selected:
-            to_be_removed.append(dlg.selected[i])
-
+        to_be_removed = [dlg.selected[i] for i in selected]
         dlg.available.extend(to_be_removed)
         dlg.not_in_playlist.extend(to_be_removed)
         for item in to_be_removed:
@@ -1964,7 +1966,7 @@ class ManageChannelPlaylistList(ManageChannelFilesList):
         except:  # regex incorrect
             keyword = ''
 
-        if len(keyword) > 0:
+        if keyword != "":
             def match(item):
                 return re.search(keyword, item.name.lower())
 
@@ -2105,10 +2107,7 @@ class CommentManager(BaseManager):
 class CommentList(List):
 
     def __init__(self, parent, parent_list, canReply=False, quickPost=False, horizontal=False, noheader=False):
-        if quickPost:
-            self.quickPost = self.OnThankYou
-        else:
-            self.quickPost = None
+        self.quickPost = self.OnThankYou if quickPost else None
         self.horizontal = horizontal
         self.noheader = noheader
 
@@ -2166,7 +2165,7 @@ class CommentList(List):
         for comment in data:
             addComments(comment, 0)
 
-        if len(listData) > 0:
+        if listData:
             self.list.SetData(listData)
         else:
             self.list.ShowMessage('No comments are found.')
@@ -2327,7 +2326,7 @@ class ActivityList(List):
         List.SetData(self, recent_torrents)
 
         # remove duplicates
-        recent_torrent_infohashes = set([torrent.infohash for torrent in recent_torrents])
+        recent_torrent_infohashes = {torrent.infohash for torrent in recent_torrents}
         recent_received_torrents = [
             torrent for torrent in recent_received_torrents if torrent.infohash not in recent_torrent_infohashes]
 
@@ -2346,9 +2345,7 @@ class ActivityList(List):
                  for marking in recent_markings]
         data.sort(reverse=True)
 
-        # removing timestamp
-        data = [item for _, item in data]
-        if len(data) > 0:
+        if data := [item for _, item in data]:
             self.list.SetData(data)
         else:
             self.list.ShowMessage('No recent activity is found.')
@@ -2432,9 +2429,10 @@ class ModificationList(List):
     @forceWxThread
     def SetData(self, data):
         List.SetData(self, data)
-        data = [(modification.id, (), modification, ModificationItem) for modification in data]
-
-        if len(data) > 0:
+        if data := [
+            (modification.id, (), modification, ModificationItem)
+            for modification in data
+        ]:
             self.list.SetData(data)
         else:
             self.list.ShowMessage('No modifications are found.')
@@ -2571,9 +2569,9 @@ class ModerationList(List):
     @forceWxThread
     def SetData(self, data):
         List.SetData(self, data)
-        data = [(moderation.id, (), moderation, ModerationItem) for moderation in data]
-
-        if len(data) > 0:
+        if data := [
+            (moderation.id, (), moderation, ModerationItem) for moderation in data
+        ]:
             self.list.SetData(data)
         else:
             self.list.ShowMessage(

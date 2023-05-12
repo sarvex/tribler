@@ -174,8 +174,6 @@ def skinratio(image_fie):
             if r > 60 and g < (r * 0.85) and b < (r * 0.7) and g > (r * 0.4) and b > (r * 0.2):
                 skin_pixels += 1
             total_pixels += 1
-        if total_pixels == 0:
-            return 0
-        return skin_pixels / float(total_pixels)
+        return 0 if total_pixels == 0 else skin_pixels / float(total_pixels)
     except:
         return 0

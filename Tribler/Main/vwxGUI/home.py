@@ -206,10 +206,10 @@ class Stats(wx.Panel):
             self.activity.onActivity(msg)
 
     def onKey(self, event):
-        if event.ControlDown() and (event.GetKeyCode() == 73 or event.GetKeyCode() == 105):  # ctrl + i
+        if event.ControlDown() and event.GetKeyCode() in [73, 105]:  # ctrl + i
             self._showInspectionTool()
 
-        elif event.ControlDown() and (event.GetKeyCode() == 68 or event.GetKeyCode() == 100):  # ctrl + d
+        elif event.ControlDown() and event.GetKeyCode() in [68, 100]:  # ctrl + d
             self._printDBStats()
         else:
             event.Skip()
@@ -227,16 +227,15 @@ class Stats(wx.Panel):
     def OnDowser(self, event):
         if self.dowserStatus.GetLabel() == 'Dowser is running':
             self._stopDowser()
-        else:
-            if not self._startDowser():
-                dlg = wx.DirDialog(None,
-                                   "Please select your dowser installation directory",
-                                   style=wx.wx.DD_DIR_MUST_EXIST)
-                if dlg.ShowModal() == wx.ID_OK and os.path.isdir(dlg.GetPath()):
-                    sys.path.append(dlg.GetPath())
-                    self._startDowser()
+        elif not self._startDowser():
+            dlg = wx.DirDialog(None,
+                               "Please select your dowser installation directory",
+                               style=wx.wx.DD_DIR_MUST_EXIST)
+            if dlg.ShowModal() == wx.ID_OK and os.path.isdir(dlg.GetPath()):
+                sys.path.append(dlg.GetPath())
+                self._startDowser()
 
-                dlg.Destroy()
+            dlg.Destroy()
 
     def OnMemdump(self, event):
         from meliae import scanner
@@ -293,12 +292,13 @@ class Stats(wx.Panel):
         sqlite_db = self.guiutility.utility.session.sqlite_db
         tables = sqlite_db.fetchall("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         for table, in tables:
-            self._logger.info("%s %s", table, sqlite_db.fetchone("SELECT COUNT(*) FROM %s" % table))
+            self._logger.info(
+                "%s %s", table, sqlite_db.fetchone(f"SELECT COUNT(*) FROM {table}")
+            )
 
     def Show(self, show=True):
-        if show:
-            if not self.isReady:
-                self._DoInit()
+        if show and not self.isReady:
+            self._DoInit()
 
         wx.Panel.Show(self, show)
 
@@ -725,7 +725,9 @@ class NetworkGraphPanel(wx.Panel):
             else:
                 pos = self.circuit_to_listindex[circuit_id]
             self.circuit_list.SetStringItem(pos, 1, str(circuit.state))
-            self.circuit_list.SetStringItem(pos, 2, str(len(circuit.hops)) + "/" + str(circuit.goal_hops))
+            self.circuit_list.SetStringItem(
+                pos, 2, f"{len(circuit.hops)}/{str(circuit.goal_hops)}"
+            )
 
             bytes_uploaded = circuit.bytes_up
             bytes_downloaded = circuit.bytes_down
@@ -749,7 +751,9 @@ class NetworkGraphPanel(wx.Panel):
     def AppendToLog(self, msg):
         if not self:
             return
-        self.log_text.AppendText('[%s]: %s' % (datetime.datetime.now().strftime("%H:%M:%S"), msg))
+        self.log_text.AppendText(
+            f'[{datetime.datetime.now().strftime("%H:%M:%S")}]: {msg}'
+        )
 
     @forceWxThread
     def OnExtended(self, subject, changeType, circuit):
@@ -896,7 +900,7 @@ class NetworkGraphPanel(wx.Panel):
 
         # Draw edges
         for circuit, points in circuit_points.iteritems():
-            for point1, point2 in zip(points[0::1], points[1::1]):
+            for point1, point2 in zip(points[::1], points[1::1]):
                 if circuit == self.selected_circuit:
                     gc.SetPen(wx.Pen(wx.BLUE, self.line_width))
                 else:
@@ -944,7 +948,7 @@ class NetworkGraphPanel(wx.Panel):
             self.hop_active_evt = None
 
         if self.hop_active and self.hop_active[0] in circuit_points and \
-           (not self.hop_active[0] or self.hop_active[1] <= len(self.hop_active[0].hops)):
+               (not self.hop_active[0] or self.hop_active[1] <= len(self.hop_active[0].hops)):
             circuit, hop_index = self.hop_active
             hop = circuit.hops[hop_index - 1] if hop_index and circuit else None
             x, y = circuit_points[circuit][hop_index]
@@ -960,7 +964,7 @@ class NetworkGraphPanel(wx.Panel):
             if not hop:
                 text = 'You\nPERMID ' + bin2str(self.tunnel_community.my_member.public_key)[:10]
             else:
-                text = 'PERMID ' + bin2str(self.dispersy.crypto.key_to_hash(hop.public_key))[:10]
+                text = f'PERMID {bin2str(self.dispersy.crypto.key_to_hash(hop.public_key))[:10]}'
                 if 'UNKNOWN HOST' not in hop.host:
                     text = 'IP %s:%s\n' % (hop.host, hop.port) + text
 
@@ -1049,12 +1053,12 @@ class ArtworkPanel(wx.Panel):
     def SetData(self, delayedResult):
         if not self or not self.list:
             return
-        data = []
         torrents = delayedResult.get()
 
-        for torrent in torrents:
-            data.append((torrent.infohash, [torrent.name], torrent, ThumbnailListItemNoTorrent))
-
+        data = [
+            (torrent.infohash, [torrent.name], torrent, ThumbnailListItemNoTorrent)
+            for torrent in torrents
+        ]
         self.list.SetData(data)
         self.list.SetupScrolling()
 
@@ -1071,10 +1075,12 @@ class ArtworkPanel(wx.Panel):
         if infohash in self.is_xxx:
             return self.is_xxx[infohash]
 
-        thumb_files = [os.path.join(dp, fn) for dp, _, fns in os.walk(thumb_dir)
-                       for fn in fns if os.path.splitext(fn)[1] in THUMBNAIL_FILETYPES]
-
-        if thumb_files:
+        if thumb_files := [
+            os.path.join(dp, fn)
+            for dp, _, fns in os.walk(thumb_dir)
+            for fn in fns
+            if os.path.splitext(fn)[1] in THUMBNAIL_FILETYPES
+        ]:
             result = considered_xxx(thumb_files[0])
 
         self.is_xxx[infohash] = result

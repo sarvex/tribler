@@ -22,11 +22,7 @@ def create_torrent_file(file_path_list, params, callback=None):
         filename = os.path.join(base_path[len(base_dir) + 1:], filename)
         fs.add_file(filename, os.path.getsize(full_file_path))
 
-    if params.get('piece length'):
-        piece_size = params['piece length']
-    else:
-        piece_size = 0
-
+    piece_size = params['piece length'] if params.get('piece length') else 0
     flags = libtorrent.create_torrent_flags_t.optimize | libtorrent.create_torrent_flags_t.calculate_file_hashes
     torrent = libtorrent.create_torrent(fs, piece_size=piece_size, flags=flags)
     if params.get('comment'):
@@ -38,10 +34,8 @@ def create_torrent_file(file_path_list, params, callback=None):
         torrent.add_tracker(params['announce'])
     # tracker list
     if params.get('announce-list'):
-        tier = 1
-        for tracker in params['announce-list']:
+        for tier, _ in enumerate(params['announce-list'], start=1):
             torrent.add_tracker(params['announce'], tier=tier)
-            tier += 1
     # DHT nodes
     if params.get('nodes'):
         for node in params['nodes']:
@@ -50,9 +44,8 @@ def create_torrent_file(file_path_list, params, callback=None):
     if params.get('httpseeds'):
         torrent.add_http_seed(params['httpseeds'])
 
-    if len(file_path_list) == 1:
-        if params.get('urllist', False):
-            torrent.add_url_seed(params['urllist'])
+    if len(file_path_list) == 1 and params.get('urllist', False):
+        torrent.add_url_seed(params['urllist'])
 
     # read the files and calculate the hashes
     libtorrent.set_piece_hashes(torrent, base_dir)

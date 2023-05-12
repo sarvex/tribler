@@ -129,8 +129,9 @@ if sys.platform == "win32":
         """Unicode compatible environment variable setter
         """
         if ctypes.windll.kernel32.SetEnvironmentVariableW(name, value) == 0:
-            raise RuntimeError("Failed to set env. variable '%s' to '%s" %
-                               (repr(name), repr(value)))
+            raise RuntimeError(
+                f"Failed to set env. variable '{repr(name)}' to '{repr(value)}"
+            )
 
 #
 # hacks.py ends here

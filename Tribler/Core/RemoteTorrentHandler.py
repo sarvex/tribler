@@ -69,11 +69,14 @@ class RemoteTorrentHandler(TaskManager):
 
         for priority in (0, 1):
             self.magnet_requesters[priority] = MagnetRequester(self.session, self, priority)
-            self.torrent_requesters[priority] = TftpRequester(u"tftp_torrent_%s" % priority,
-                                                              self.session, self, priority)
+            self.torrent_requesters[priority] = TftpRequester(
+                f"tftp_torrent_{priority}", self.session, self, priority
+            )
             self.torrent_message_requesters[priority] = TorrentMessageRequester(self.session, self, priority)
 
-        self.metadata_requester = TftpRequester(u"tftp_metadata_%s" % 0, self.session, self, 0)
+        self.metadata_requester = TftpRequester(
+            'tftp_metadata_0', self.session, self, 0
+        )
 
 
     def shutdown(self):
@@ -120,8 +123,12 @@ class RemoteTorrentHandler(TaskManager):
 
     @call_on_reactor_thread
     def download_torrent(self, candidate, infohash, user_callback=None, priority=1, timeout=None):
-        assert isinstance(infohash, str), u"infohash has invalid type: %s" % type(infohash)
-        assert len(infohash) == INFOHASH_LENGTH, u"infohash has invalid length: %s" % len(infohash)
+        assert isinstance(
+            infohash, str
+        ), f"infohash has invalid type: {type(infohash)}"
+        assert (
+            len(infohash) == INFOHASH_LENGTH
+        ), f"infohash has invalid length: {len(infohash)}"
 
         # fix prio levels to 1 and 0
         priority = min(priority, 1)
@@ -176,8 +183,12 @@ class RemoteTorrentHandler(TaskManager):
 
     @call_on_reactor_thread
     def download_torrentmessage(self, candidate, infohash, user_callback=None, priority=1):
-        assert isinstance(infohash, str), u"infohash has invalid type: %s" % type(infohash)
-        assert len(infohash) == INFOHASH_LENGTH, u"infohash has invalid length: %s" % len(infohash)
+        assert isinstance(
+            infohash, str
+        ), f"infohash has invalid type: {type(infohash)}"
+        assert (
+            len(infohash) == INFOHASH_LENGTH
+        ), f"infohash has invalid length: {len(infohash)}"
 
         if user_callback:
             callback = lambda ih = infohash: user_callback(ih)
@@ -240,8 +251,9 @@ class RemoteTorrentHandler(TaskManager):
             items = qsize.items()
             if items:
                 items.sort()
-                return "%s: " % qname + ",".join(map(lambda a: "%d/%d" % a, items))
+                return f"{qname}: " + ",".join(map(lambda a: "%d/%d" % a, items))
             return ''
+
         return ", ".join([qstring for qstring in [getQueueSize("TFTP", self.torrent_requesters),
                                                   getQueueSize("DHY", self.magnet_requesters),
                                                   getQueueSize("Msg", self.torrent_message_requesters)] if qstring])
@@ -267,9 +279,8 @@ class RemoteTorrentHandler(TaskManager):
             bw = 0
             for requester in requesters.itervalues():
                 bw += requester.total_bandwidth
-            if bw:
-                return "%s: " % qname + "%.1f KB" % (bw / 1024.0)
-            return ''
+            return f"{qname}: " + "%.1f KB" % (bw / 1024.0) if bw else ''
+
         return ", ".join([qstring for qstring in [getQueueBW("TQueue", self.torrent_requesters), getQueueBW("DQueue", self.magnet_requesters)] if qstring])
 
 
@@ -421,7 +432,7 @@ class MagnetRequester(Requester):
             # Mac has just 256 fds per process, be less aggressive
             self.REQUEST_INTERVAL = 15.0
 
-        if priority <= 1 and not sys.platform == "darwin":
+        if priority <= 1 and sys.platform != "darwin":
             self.MAX_CONCURRENT = 3
 
         self._torrent_db_handler = session.open_dbhandler(NTFY_TORRENTS)
@@ -449,13 +460,13 @@ class MagnetRequester(Requester):
             infohash_str = hexlify(infohash)
 
             # try magnet link
-            magnetlink = "magnet:?xt=urn:btih:" + infohash_str
+            magnetlink = f"magnet:?xt=urn:btih:{infohash_str}"
 
             # see if we know any trackers for this magnet
             trackers = self._torrent_db_handler.getTrackerListByInfohash(infohash)
             for tracker in trackers:
                 if tracker not in (u"no-DHT", u"DHT"):
-                    magnetlink += "&tr=" + urllib.quote_plus(tracker)
+                    magnetlink += f"&tr={urllib.quote_plus(tracker)}"
 
             self._logger.debug(u"requesting %s priority %s through magnet link %s",
                                infohash_str, self._priority, magnetlink)
@@ -517,7 +528,7 @@ class TftpRequester(Requester):
         ip, port = candidate.sock_addr
         # no binary for keys
         if is_metadata:
-            key = "%s%s" % (METADATA_PREFIX, hexlify(key))
+            key = f"{METADATA_PREFIX}{hexlify(key)}"
             key_str = key
         else:
             key = hexlify(key)
@@ -545,7 +556,9 @@ class TftpRequester(Requester):
 
     @pass_when_stopped
     def _do_request(self):
-        assert not self._active_request_list, "active_request_list is not empty = %s" % repr(self._active_request_list)
+        assert (
+            not self._active_request_list
+        ), f"active_request_list is not empty = {repr(self._active_request_list)}"
 
         # starts to download a torrent
         key = self._pending_request_queue.popleft()
@@ -563,7 +576,7 @@ class TftpRequester(Requester):
         else:
             # key is the hexlified info hash
             info_hash = unhexlify(key)
-            file_name = hexlify(info_hash) + u'.torrent'
+            file_name = f'{hexlify(info_hash)}.torrent'
             extra_info = {u'key': key, u'info_hash': info_hash}
 
         self._logger.debug(u"start TFTP download for %s from %s:%s", file_name, ip, port)
@@ -589,8 +602,9 @@ class TftpRequester(Requester):
         info_hash = extra_info.get(u"info_hash")
         thumb_hash = extra_info.get(u"thumb_hash")
 
-        assert key in self._active_request_list, u"key = %s, active_request_list = %s" % (repr(key),
-                                                                                          self._active_request_list)
+        assert (
+            key in self._active_request_list
+        ), f"key = {repr(key)}, active_request_list = {self._active_request_list}"
 
         self._requests_succeeded += 1
         self._total_bandwidth += len(file_data)
@@ -614,8 +628,9 @@ class TftpRequester(Requester):
         self._logger.debug(u"failed to download %s from %s:%s: %s", file_name, address[0], address[1], error_msg)
 
         key = extra_info[u'key']
-        assert key in self._active_request_list, u"key = %s, active_request_list = %s" % (repr(key),
-                                                                                          self._active_request_list)
+        assert (
+            key in self._active_request_list
+        ), f"key = {repr(key)}, active_request_list = {self._active_request_list}"
 
         self._requests_failed += 1
 

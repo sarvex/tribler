@@ -102,15 +102,17 @@ class CreateTorrentDialog(wx.Dialog):
 
         abbrev_mb = " MB"
         abbrev_kb = " KB"
-        piece_choices = ['Automatic',
-                         '4' + abbrev_mb,
-                         '2' + abbrev_mb,
-                         '1' + abbrev_mb,
-                         '512' + abbrev_kb,
-                         '256' + abbrev_kb,
-                         '128' + abbrev_kb,
-                         '64' + abbrev_kb,
-                         '32' + abbrev_kb]
+        piece_choices = [
+            'Automatic',
+            f'4{abbrev_mb}',
+            f'2{abbrev_mb}',
+            f'1{abbrev_mb}',
+            f'512{abbrev_kb}',
+            f'256{abbrev_kb}',
+            f'128{abbrev_kb}',
+            f'64{abbrev_kb}',
+            f'32{abbrev_kb}',
+        ]
         self.pieceChoice = wx.Choice(self, -1, choices=piece_choices)
         self.pieceChoice.SetSelection(0)
         hSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -205,7 +207,7 @@ class CreateTorrentDialog(wx.Dialog):
 
             params = {}
             params['comment'] = self.commentList.GetValue().encode('utf-8')
-            params['created by'] = '%s version: %s' % ('Tribler', version_id)
+            params['created by'] = f'Tribler version: {version_id}'
 
             trackers = self.trackerList.GetValue()
             trackers = [tracker for tracker in trackers.split(os.linesep) if tracker]

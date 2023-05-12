@@ -67,8 +67,7 @@ class VideoPlayer(object):
         self.internalplayer_callback = callback
 
     def play(self, download, fileindex):
-        url = 'http://127.0.0.1:' + str(self.videoserver.port) + '/'\
-              + hexlify(download.get_def().get_infohash()) + '/' + str(fileindex)
+        url = f'http://127.0.0.1:{str(self.videoserver.port)}/{hexlify(download.get_def().get_infohash())}/{str(fileindex)}'
         if self.playbackmode == PLAYBACKMODE_INTERNAL:
             self.launch_video_player(url, download)
         else:
@@ -170,7 +169,7 @@ class VideoPlayer(object):
             _, cmd = win32_retrieve_video_play_command(ext, videourl)
             if cmd:
                 self._logger.debug("Videoplayer: win32 reg said cmd is %s", cmd)
-                return 'start /B "TriblerVideo" ' + cmd
+                return f'start /B "TriblerVideo" {cmd}'
 
         qprogpath = quote_program_path(self.videoplayerpath)
         if not qprogpath:
@@ -178,11 +177,11 @@ class VideoPlayer(object):
 
         qvideourl = escape_path(videourl)
         if sys.platform == 'win32':
-            cmd = 'start /B "TriblerVideo" ' + qprogpath + ' ' + qvideourl
+            cmd = f'start /B "TriblerVideo" {qprogpath} {qvideourl}'
         elif sys.platform == 'darwin':
-            cmd = 'open -a ' + qprogpath + ' --args ' + qvideourl
+            cmd = f'open -a {qprogpath} --args {qvideourl}'
         else:
-            cmd = qprogpath + ' ' + qvideourl
+            cmd = f'{qprogpath} {qvideourl}'
 
         self._logger.debug("Videoplayer: using external user-defined player by executing %s", cmd)
 

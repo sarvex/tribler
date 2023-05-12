@@ -33,8 +33,7 @@ class TriblerStatistics(object):
 
         dispersy.statistics.update()
 
-        data_dict = {u'communities': self._create_community_data(dispersy)}
-        return data_dict
+        return {u'communities': self._create_community_data(dispersy)}
 
     def _create_community_data(self, dispersy):
         """
@@ -45,18 +44,19 @@ class TriblerStatistics(object):
         community_data_dict = {}
 
         for community in dispersy.statistics.communities:
-            median_global_time = u"%d (%d difference)" % \
-                (community.acceptable_global_time - community.dispersy_acceptable_global_time_range,
-                 community.acceptable_global_time - community.global_time -
-                    community.dispersy_acceptable_global_time_range)
-
             candidate_list = None
             if community.dispersy_enable_candidate_walker or \
-                    community.dispersy_enable_candidate_walker_responses:
+                        community.dispersy_enable_candidate_walker_responses:
                 candidate_count = u"%d " % len(community.candidates)
-                candidate_list = [(u"%s" % global_time, u"%s:%s" % lan, u"%s:%s" % wan,
-                                   u"%s" % binascii.hexlify(mid) if mid else DATA_NONE)
-                                  for lan, wan, global_time, mid in community.candidates]
+                candidate_list = [
+                    (
+                        f"{global_time}",
+                        u"%s:%s" % lan,
+                        u"%s:%s" % wan,
+                        f"{binascii.hexlify(mid)}" if mid else DATA_NONE,
+                    )
+                    for lan, wan, global_time, mid in community.candidates
+                ]
                 candidate_list.sort()
             elif community.candidates:
                 candidate_count = u"%d*" % len(community.candidates)
@@ -65,51 +65,69 @@ class TriblerStatistics(object):
 
             database_list = []
             if community.database:
-                database_str = u"%d packets" % \
-                    sum(count for count in community.database.itervalues())
-                for name, count in sorted(community.database.iteritems(), key=lambda tup: tup[1]):
-                    database_list.append((u"%s" % count, u"%s" % name))
+                database_str = u"%d packets" % sum(community.database.itervalues())
+                database_list.extend(
+                    (f"{count}", f"{name}")
+                    for name, count in sorted(
+                        community.database.iteritems(), key=lambda tup: tup[1]
+                    )
+                )
             else:
                 database_str = u"? packets"
 
+            median_global_time = u"%d (%d difference)" % (
+                community.acceptable_global_time
+                - community.dispersy_acceptable_global_time_range,
+                community.acceptable_global_time
+                - community.global_time
+                - community.dispersy_acceptable_global_time_range,
+            )
             community_data = {
-                u"Identifier": u"%s" % community.hex_cid,
-                u"Member": u"%s" % community.hex_mid,
-                u"Classification": u"%s" % community.classification,
-                u"Database id": u"%s" % community.database_id,
-                u"Global time": u"%s" % community.global_time,
-                u"Median global time": u"%s" % median_global_time,
-                u"Acceptable range": u"%s" % community.dispersy_acceptable_global_time_range,
-                u"Sync bloom created": u"%s" % community.sync_bloom_new,
-                u"Sync bloom reused": u"%s" % community.sync_bloom_reuse,
-                u"Sync bloom skipped": u"%s" % community.sync_bloom_skip,
-                u"Candidates": u"%s" % candidate_count,
+                u"Identifier": f"{community.hex_cid}",
+                u"Member": f"{community.hex_mid}",
+                u"Classification": f"{community.classification}",
+                u"Database id": f"{community.database_id}",
+                u"Global time": f"{community.global_time}",
+                u"Median global time": f"{median_global_time}",
+                u"Acceptable range": f"{community.dispersy_acceptable_global_time_range}",
+                u"Sync bloom created": f"{community.sync_bloom_new}",
+                u"Sync bloom reused": f"{community.sync_bloom_reuse}",
+                u"Sync bloom skipped": f"{community.sync_bloom_skip}",
+                u"Candidates": f"{candidate_count}",
                 u"Candidate_list": candidate_list,
                 u"Database": database_str,
                 u"Database_list": database_list,
-                u"Packets Created": u"%s" % community.msg_statistics.created_count,
-                u"Packets Sent": u"%s" % compute_ratio(community.msg_statistics.outgoing_count,
-                                                       community.msg_statistics.outgoing_count
-                                                       + community.msg_statistics.total_received_count),
-                u"Packets Received": u"%s" % compute_ratio(community.msg_statistics.total_received_count,
-                                                           community.msg_statistics.outgoing_count
-                                                           + community.msg_statistics.total_received_count),
-                u"Packets Success": compute_ratio(community.msg_statistics.success_count,
-                                                  community.msg_statistics.total_received_count),
-                u"Packets Dropped": compute_ratio(community.msg_statistics.drop_count,
-                                                  community.msg_statistics.total_received_count),
-                u"Packets Delayed Sent": compute_ratio(community.msg_statistics.delay_send_count,
-                                                       community.msg_statistics.total_received_count),
-                u"Packets Delayed Received": compute_ratio(community.msg_statistics.delay_received_count,
-                                                           community.msg_statistics.total_received_count),
-                u"Packets Delayed Success": compute_ratio(community.msg_statistics.delay_success_count,
-                                                          community.msg_statistics.delay_received_count),
-                u"Packets Delayed Timeout": compute_ratio(community.msg_statistics.delay_timeout_count,
-                                                          community.msg_statistics.delay_received_count),
+                u"Packets Created": f"{community.msg_statistics.created_count}",
+                u"Packets Sent": f"{compute_ratio(community.msg_statistics.outgoing_count, community.msg_statistics.outgoing_count + community.msg_statistics.total_received_count)}",
+                u"Packets Received": f"{compute_ratio(community.msg_statistics.total_received_count, community.msg_statistics.outgoing_count + community.msg_statistics.total_received_count)}",
+                u"Packets Success": compute_ratio(
+                    community.msg_statistics.success_count,
+                    community.msg_statistics.total_received_count,
+                ),
+                u"Packets Dropped": compute_ratio(
+                    community.msg_statistics.drop_count,
+                    community.msg_statistics.total_received_count,
+                ),
+                u"Packets Delayed Sent": compute_ratio(
+                    community.msg_statistics.delay_send_count,
+                    community.msg_statistics.total_received_count,
+                ),
+                u"Packets Delayed Received": compute_ratio(
+                    community.msg_statistics.delay_received_count,
+                    community.msg_statistics.total_received_count,
+                ),
+                u"Packets Delayed Success": compute_ratio(
+                    community.msg_statistics.delay_success_count,
+                    community.msg_statistics.delay_received_count,
+                ),
+                u"Packets Delayed Timeout": compute_ratio(
+                    community.msg_statistics.delay_timeout_count,
+                    community.msg_statistics.delay_received_count,
+                ),
                 u"Statistics": self._get_community_rawinfo(community),
             }
 
-            key = u"<%s>: %s" % (community.classification, community.hex_cid)
+            key = f"<{community.classification}>: {community.hex_cid}"
             community_data_dict[key] = community_data
 
         return community_data_dict
@@ -128,7 +146,7 @@ class TriblerStatistics(object):
                     raw_info[category][key] = unicode(val)
 
         for category in msg_categories:
-            dict_name = u"%s_dict" % category
+            dict_name = f"{category}_dict"
             if getattr(community.msg_statistics, dict_name, None):
                 raw_info[category] = {}
                 for key, val in getattr(community.msg_statistics, dict_name).items():

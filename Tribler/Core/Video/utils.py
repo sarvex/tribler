@@ -33,9 +33,9 @@ def win32_retrieve_video_play_command(ext, videourl):
         # Darn.... Try this: (VLC seems to be the one messing the registry up in the
         # first place)
         winfiletype = registry.readRootKey(ext, value_name="VLC.Backup")
-        if winfiletype is None or winfiletype == '':
-            return [None, None]
-        # Get MIME type
+            # Get MIME type
+    if winfiletype is None or winfiletype == '':
+        return [None, None]
     logger.debug("videoplay: Looking for player for ext %s which is type %s", ext, winfiletype)
 
     contenttype = registry.readRootKey(ext, value_name="Content Type")
@@ -45,8 +45,8 @@ def win32_retrieve_video_play_command(ext, videourl):
     if urlopen is None:
         openkey = winfiletype + "\shell\open\command"
         urlopen = registry.readRootKey(openkey)
-        if urlopen is None:
-            return [None, None]
+    if urlopen is None:
+        return [None, None]
 
     # Default is e.g. "C:\Program Files\Windows Media Player\wmplayer.exe" /prefetch:7 /Play "%L"
     # Replace %L
@@ -57,15 +57,11 @@ def win32_retrieve_video_play_command(ext, videourl):
         idx = suo.find('%1')
         if idx == -1:
             return [None, None]
-        else:
-            replace = '%1'
-            idx2 = suo.find('%2', idx)
-            if idx2 != -1:
+        replace = '%1'
+        idx2 = suo.find('%2', idx)
+        if idx2 != -1:
                 # Hmmm, a trailer, let's get rid of it
-                if suo[idx - 1] == '"':
-                    suo = suo[:idx + 3]  # quoted
-                else:
-                    suo = suo[:idx + 1]
+            suo = suo[:idx + 3] if suo[idx - 1] == '"' else suo[:idx + 1]
     else:
         replace = '%L'
 
@@ -79,7 +75,7 @@ def win32_retrieve_video_play_command(ext, videourl):
         else:
             end = max(0, idx - 1)
         # I assume everthing till end is the program path
-        progpath = suo[0:end]
+        progpath = suo[:end]
         qprogpath = quote_program_path(progpath)
         if qprogpath is None:
             return [None, None]
@@ -90,23 +86,18 @@ def win32_retrieve_video_play_command(ext, videourl):
 
 def quote_program_path(progpath):
     idx = progpath.find(' ')
-    if idx != -1:
-        # Contains spaces, should quote if it's really path
-        if not os.access(progpath, os.R_OK):
-            logger.debug("videoplay: Could not find assumed progpath %s", progpath)
-            return None
-        return '"' + progpath + '"'
-    else:
+    if idx == -1:
         return progpath
+    # Contains spaces, should quote if it's really path
+    if not os.access(progpath, os.R_OK):
+        logger.debug("videoplay: Could not find assumed progpath %s", progpath)
+        return None
+    return f'"{progpath}"'
 
 
 def escape_path(path):
     if path[0] != '"' and path[0] != "'" and path.find(' ') != -1:
-        if sys.platform == 'win32':
-            # Add double quotes
-            path = "\"" + path + "\""
-        else:
-            path = "\'" + path + "\'"
+        path = "\"" + path + "\"" if sys.platform == 'win32' else "\'" + path + "\'"
     return path
 
 
@@ -119,8 +110,8 @@ def return_feasible_playback_modes():
         # Make sure libvlc.dll will be found on windows
         if sys.platform.startswith('win'):
             env_entry = os.path.join(os.path.dirname(sys.argv[0]), "vlc")
-            if not env_entry in os.environ['PATH']:
-                os.environ['PATH'] += ";" + env_entry
+            if env_entry not in os.environ['PATH']:
+                os.environ['PATH'] += f";{env_entry}"
 
             # Load libvlccore.dll manually so windows doesn't find a different one when loading libvlc.dll.
             import ctypes
@@ -173,10 +164,12 @@ def return_feasible_playback_modes():
         version = vlc.libvlc_get_version()
         subversions = version.split(".")
         if len(subversions) > 2:
-            version = subversions[0] + "." + subversions[1]
+            version = f"{subversions[0]}.{subversions[1]}"
         version = float(version)
         if version < 0.9:
-            raise Exception("Incorrect vlc version. We require at least version 0.9, this is %s" % version)
+            raise Exception(
+                f"Incorrect vlc version. We require at least version 0.9, this is {version}"
+            )
 
         l.append(PLAYBACKMODE_INTERNAL)
     except NameError:

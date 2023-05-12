@@ -50,7 +50,7 @@ class ChannelRssParser(TaskManager):
         self._logger.debug(u"using key %s for channel %s, rss %s",
                            cache_key_str, hexlify(self.channel_community.cid), self.rss_url)
 
-        url_cache_name = u"rss_cache_%s.txt" % cache_key_str
+        url_cache_name = f"rss_cache_{cache_key_str}.txt"
         url_cache_path = os.path.join(self.session.get_state_dir(), url_cache_name)
         self._url_cache = SimpleCache(url_cache_path)
         self._url_cache.load()
@@ -157,12 +157,8 @@ class RSSFeedParser(object):
         """
         if content is None:
             return None
-        url_set = set()
-
         a_list = re.findall(r'<a.+href=[\'"]?([^\'" >]+)', content)
-        for a_href in a_list:
-            url_set.add(a_href)
-
+        url_set = set(a_list)
         img_list = re.findall(r'<img.+src=[\'"]?([^\'" >]+)', content)
         for img_src in img_list:
             url_set.add(img_src)
@@ -189,8 +185,7 @@ class RSSFeedParser(object):
 
         parsed_html_content = u''
         for line in content.split('\n'):
-            trimmed_line = line.strip()
-            if trimmed_line:
+            if trimmed_line := line.strip():
                 parsed_html_content += trimmed_line + u'\n'
 
         return parsed_html_content
@@ -211,15 +206,11 @@ class RSSFeedParser(object):
             torrent_url = item[u'link']
 
             thumbnail_list = []
-            media_thumbnail_list = item.get(u'media_thumbnail', None)
-            if media_thumbnail_list:
-                for thumbnail in media_thumbnail_list:
-                    thumbnail_list.append(thumbnail[u'url'])
-
-            # assemble the information
-            parsed_item = {u'title': title,
-                           u'description': description,
-                           u'torrent_url': torrent_url,
-                           u'thumbnail_list': thumbnail_list}
-
-            yield parsed_item
+            if media_thumbnail_list := item.get(u'media_thumbnail', None):
+                thumbnail_list.extend(thumbnail[u'url'] for thumbnail in media_thumbnail_list)
+            yield {
+                u'title': title,
+                u'description': description,
+                u'torrent_url': torrent_url,
+                u'thumbnail_list': thumbnail_list,
+            }

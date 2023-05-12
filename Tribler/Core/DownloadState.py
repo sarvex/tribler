@@ -48,18 +48,17 @@ class DownloadState(object):
             self._logger.debug("stats is None '%s'", name)
             self.error = error  # readonly access
             self.progress = progress
-            if self.error is not None:
-                self.status = DLSTATUS_STOPPED_ON_ERROR
-            else:
-                self.status = status
-
+            self.status = DLSTATUS_STOPPED_ON_ERROR if self.error is not None else status
         elif error is not None:
             self._logger.debug("error is not None '%s'", name)
             self.error = error  # readonly access
             self.progress = 0.0  # really want old progress
             self.status = DLSTATUS_STOPPED_ON_ERROR
 
-        elif status is not None and not status in [DLSTATUS_DOWNLOADING, DLSTATUS_SEEDING]:
+        elif status is not None and status not in [
+            DLSTATUS_DOWNLOADING,
+            DLSTATUS_SEEDING,
+        ]:
             # For HASHCHECKING and WAITING4HASHCHECK
             self._logger.debug("we have status and it is not downloading or seeding '%s'", name)
             self.error = error
@@ -155,10 +154,7 @@ class DownloadState(object):
         """
         if self.stats is None:
             return 0
-        if direct == UPLOAD:
-            return self.stats['up']
-        else:
-            return self.stats['down']
+        return self.stats['up'] if direct == UPLOAD else self.stats['down']
 
     def get_total_transferred(self, direct):
         """
@@ -262,10 +258,7 @@ class DownloadState(object):
         using DownloadStartupConfig.set_selected_files().
         @return A list of booleans
         """
-        if self.haveslice is None:
-            return []
-        else:
-            return self.haveslice
+        return [] if self.haveslice is None else self.haveslice
 
     def get_pieces_total_complete(self):
         """ Returns the number of total and completed pieces
@@ -295,11 +288,7 @@ class DownloadState(object):
                     # niels: ranges are from-to (inclusive ie if a file consists one piece t and tl will be the same)
                     total_pieces = tl - t
                     if total_pieces and getattr(self, 'haveslice_total', False):
-                        completed = 0
-                        for index in range(t, tl):
-                            if self.haveslice_total[index]:
-                                completed += 1
-
+                        completed = sum(1 for index in range(t, tl) if self.haveslice_total[index])
                         completion.append((f, completed / (total_pieces * 1.0)))
                     elif f in files:
                         completion.append((f, 0.0))
@@ -364,10 +353,7 @@ class DownloadState(object):
         completed.
         @return A float (0..1) """
         if self.stats is None:
-            if self.status == DLSTATUS_STOPPED and self.progress == 1.0:
-                return 1.0
-            else:
-                return 0.0
+            return 1.0 if self.status == DLSTATUS_STOPPED and self.progress == 1.0 else 0.0
         else:
             return self.stats['vod_prebuf_frac']
 
@@ -376,10 +362,7 @@ class DownloadState(object):
         completed.
         @return A float (0..1) """
         if self.stats is None:
-            if self.status == DLSTATUS_STOPPED and self.progress == 1.0:
-                return 1.0
-            else:
-                return 0.0
+            return 1.0 if self.status == DLSTATUS_STOPPED and self.progress == 1.0 else 0.0
         else:
             return self.stats.get('vod_prebuf_frac_consec', -1)
 
@@ -387,10 +370,7 @@ class DownloadState(object):
         """ Returns if this download is currently in vod mode
 
         @return A Boolean"""
-        if self.stats is None:
-            return False
-        else:
-            return self.stats['vod']
+        return False if self.stats is None else self.stats['vod']
 
     def get_peerlist(self):
         """ Returns a list of dictionaries, one for each connected peer

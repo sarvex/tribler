@@ -256,8 +256,7 @@ class ASyncDelayedResult(object):
             return self.__result
         else:
             print_stack()
-            self._logger.info("TIMEOUT on get %s %s" %
-                              (repr(self.__jobID), repr(timeout)))
+            self._logger.info(f"TIMEOUT on get {repr(self.__jobID)} {repr(timeout)}")
 
     def wait(self, timeout=None):
         return self.isFinished.wait(timeout) or self.isFinished.isSet()
@@ -306,7 +305,7 @@ def startWorker(
             try:
                 filename, line, function, _ = extract_stack(limit=2)[0]
                 _, filename = os.path.split(filename)
-                jobID = u"%s:%s (%s)" % (filename, line, function)
+                jobID = f"{filename}:{line} ({function})"
             except:
                 pass
 

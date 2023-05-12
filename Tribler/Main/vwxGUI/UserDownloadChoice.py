@@ -38,7 +38,7 @@ class UserDownloadChoice(object):
 
         # Ensure that there is a "download_state" dictionary. It
         # should contain infohash/state tuples.
-        if not "download_state" in self._choices:
+        if "download_state" not in self._choices:
             self._choices["download_state"] = {}
 
     def flush(self):
@@ -64,4 +64,7 @@ class UserDownloadChoice(object):
         return self._choices["download_state"].get(infohash, default)
 
     def get_download_states(self):
-        return dict((k.decode('hex'), v) for k, v in self._choices["download_state"].iteritems())
+        return {
+            k.decode('hex'): v
+            for k, v in self._choices["download_state"].iteritems()
+        }

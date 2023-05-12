@@ -85,15 +85,14 @@ class DBUpgrader(object):
         if self.db.version == LATEST_DB_VERSION:
             self.status_update_func(u"Database upgrade finished.")
             self.failed = False
+        elif self.db.version < LOWEST_SUPPORTED_DB_VERSION:
+            msg = f"Database is too old {self.db.version} < {LOWEST_SUPPORTED_DB_VERSION}"
+            self.status_update_func(msg)
+            raise VersionNoLongerSupportedError(msg)
         else:
-            if self.db.version < LOWEST_SUPPORTED_DB_VERSION:
-                msg = u"Database is too old %s < %s" % (self.db.version, LOWEST_SUPPORTED_DB_VERSION)
-                self.status_update_func(msg)
-                raise VersionNoLongerSupportedError(msg)
-            else:
-                msg = u"Database upgrade failed: %s -> %s" % (self.db.version, LATEST_DB_VERSION)
-                self.status_update_func(msg)
-                raise DatabaseUpgradeError(msg)
+            msg = f"Database upgrade failed: {self.db.version} -> {LATEST_DB_VERSION}"
+            self.status_update_func(msg)
+            raise DatabaseUpgradeError(msg)
 
     def _purge_old_search_metadata_communities(self):
         """
@@ -124,7 +123,7 @@ class DBUpgrader(object):
         connection.close()
 
     def _upgrade_17_to_18(self):
-        self.current_status = u"Upgrading database from v%s to v%s..." % (17, 18)
+        self.current_status = 'Upgrading database from v17 to v18...'
 
         self.db.execute(u"""
 DROP TABLE IF EXISTS BarterCast;
@@ -136,7 +135,7 @@ INSERT OR IGNORE INTO MetaDataTypes ('name') VALUES ('video-info');
         self.db.write_version(18)
 
     def _upgrade_18_to_22(self):
-        self.current_status = u"Upgrading database from v%s to v%s..." % (18, 22)
+        self.current_status = 'Upgrading database from v18 to v22...'
 
         self.db.execute(u"""
 DROP INDEX IF EXISTS Torrent_swift_hash_idx;
@@ -196,7 +195,7 @@ DROP INDEX IF EXISTS idx_search_torrent;
         """
         Migrates the database to the new version.
         """
-        self.status_update_func(u"Upgrading database from v%s to v%s..." % (22, 23))
+        self.status_update_func('Upgrading database from v22 to v23...')
 
         self.db.execute(u"""
 DROP TABLE IF EXISTS BarterCast;
@@ -276,15 +275,16 @@ CREATE TABLE IF NOT EXISTS _tmp_Torrent (
 
                 keys_str = u", ".join(keys)
                 values_str = u"?," * len(keys)
-                insert_stmt = u"INSERT INTO _tmp_Torrent(%s) VALUES(%s)" % (keys_str, values_str[:-1])
-                current_count = 0
-
-                results = self.db.execute(u"SELECT %s FROM Torrent;" % keys_str)
+                insert_stmt = f"INSERT INTO _tmp_Torrent({keys_str}) VALUES({values_str[:-1]})"
+                results = self.db.execute(f"SELECT {keys_str} FROM Torrent;")
                 new_torrents = []
-                for torrent in results:
+                for current_count, torrent in enumerate(results, start=1):
                     torrent_id, infohash, name, torrent_file_name = torrent[:4]
 
-                    filepath = os.path.join(self.torrent_collecting_dir, hexlify(str2bin(infohash)) + u".torrent")
+                    filepath = os.path.join(
+                        self.torrent_collecting_dir,
+                        f"{hexlify(str2bin(infohash))}.torrent",
+                    )
 
                     # Check if we have the actual .torrent
                     torrent_file_name = None
@@ -296,8 +296,9 @@ CREATE TABLE IF NOT EXISTS _tmp_Torrent (
 
                     new_torrents.append((torrent_id, infohash, name, torrent_file_name) + torrent[4:])
 
-                    current_count += 1
-                    self.status_update_func(u"Upgrading database, %s records upgraded..." % current_count)
+                    self.status_update_func(
+                        f"Upgrading database, {current_count} records upgraded..."
+                    )
 
                 self.status_update_func(u"All torrent entries processed, inserting in database...")
                 self.db.executemany(insert_stmt, new_torrents)
@@ -338,7 +339,7 @@ CREATE TABLE IF NOT EXISTS MetadataData (
         self.db.write_version(23)
 
     def _upgrade_23_to_24(self):
-        self.status_update_func(u"Upgrading database from v%s to v%s..." % (23, 24))
+        self.status_update_func('Upgrading database from v23 to v24...')
 
         # remove all thumbnail files
         for root, dirs, files in os.walk(self.session.get_torrent_collecting_dir()):
@@ -351,13 +352,13 @@ CREATE TABLE IF NOT EXISTS MetadataData (
         self.db.write_version(24)
 
     def _upgrade_24_to_25(self):
-        self.status_update_func(u"Upgrading database from v%s to v%s..." % (24, 25))
+        self.status_update_func('Upgrading database from v24 to v25...')
 
         # update database version (that one was easy :D)
         self.db.write_version(25)
 
     def _upgrade_25_to_26(self):
-        self.status_update_func(u"Upgrading database from v%s to v%s..." % (25, 26))
+        self.status_update_func('Upgrading database from v25 to v26...')
 
         # remove UserEventLog, TorrentSource, and TorrentCollecting tables
         self.status_update_func(u"Removing unused tables...")
@@ -428,7 +429,7 @@ CREATE VIEW CollectedTorrent AS SELECT * FROM Torrent WHERE is_collected == 1;
         self.db.write_version(26)
 
     def _upgrade_26_to_27(self):
-        self.status_update_func(u"Upgrading database from v%s to v%s..." % (26, 27))
+        self.status_update_func('Upgrading database from v26 to v27...')
 
         # replace status_id and category_id in Torrent table with status and category
         self.status_update_func(u"Updating Torrent table and removing unused tables...")
@@ -474,7 +475,7 @@ DROP TABLE TorrentStatus;
         self.db.write_version(27)
 
     def _upgrade_27_to_28(self):
-        self.status_update_func(u"Upgrading database from v%s to v%s..." % (27, 28))
+        self.status_update_func('Upgrading database from v27 to v28...')
 
         # remove old metadata stuff
         self.status_update_func(u"Removing old metadata tables...")
@@ -529,12 +530,12 @@ DROP TABLE IF EXISTS MetaDataTypes;
         self.status_update_func("Registering recovered torrents...")
         try:
             for infoshash_str, torrent_data in self.torrent_store.itervalues():
-                self.status_update_func("> %s" % infoshash_str)
+                self.status_update_func(f"> {infoshash_str}")
                 torrentdef = TorrentDef.load_from_memory(torrent_data)
                 if torrentdef.is_finalized():
                     infohash = torrentdef.get_infohash()
                     if not torrent_db_handler.hasTorrent(infohash):
-                        self.status_update_func(u"Registering recovered torrent: %s" % hexlify(infohash))
+                        self.status_update_func(f"Registering recovered torrent: {hexlify(infohash)}")
                         torrent_db_handler._addTorrentToDB(torrentdef, extra_info={"filename": infoshash_str})
         finally:
             torrent_db_handler.close()

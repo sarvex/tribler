@@ -17,8 +17,14 @@ class RemoveTorrent(wx.Dialog):
             state = torrents[0].channel.getState()
             canEdit = state >= ChannelCommunity.CHANNEL_OPEN
 
-        wx.Dialog.__init__(self, parent, -1, 'Are you sure you want to remove the selected torrent%s?' %
-                           ('' if single else 's'), size=(600, -1), name="RemoveTorrent")
+        wx.Dialog.__init__(
+            self,
+            parent,
+            -1,
+            f"Are you sure you want to remove the selected torrent{'' if single else 's'}?",
+            size=(600, -1),
+            name="RemoveTorrent",
+        )
         bitmap = wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_MESSAGE_BOX)
         hSizer = wx.BoxSizer(wx.HORIZONTAL)
         hSizer.Add(wx.StaticBitmap(self, -1, bitmap), 0, wx.RIGHT, 10)
@@ -27,9 +33,9 @@ class RemoveTorrent(wx.Dialog):
         firstLine = StaticText(self, -1, '')
         _set_font(firstLine, fontweight=wx.FONTWEIGHT_BOLD)
         if single:
-            firstLineMsg = "Delete '%s' from disk, or just remove it from your downloads?" % torrents[0].name
+            firstLineMsg = f"Delete '{torrents[0].name}' from disk, or just remove it from your downloads?"
         else:
-            firstLineMsg = "Delete %s torrents from disk, or just remove them from your downloads?" % len(torrents)
+            firstLineMsg = f"Delete {len(torrents)} torrents from disk, or just remove them from your downloads?"
         cdc = wx.ClientDC(firstLine)
         cdc.SetFont(firstLine.GetFont())
         firstLineMsg = wordwrap(firstLineMsg, self.GetSize()[
@@ -37,8 +43,15 @@ class RemoveTorrent(wx.Dialog):
         firstLine.SetLabel(firstLineMsg)
         firstLine.SetMinSize((1, -1))
         vSizer.Add(firstLine, 0, wx.EXPAND | wx.BOTTOM, 3)
-        vSizer.Add(StaticText(self, -1, "Removing from disk will move the selected item%s to your trash." %
-                   ('' if single else 's')), 0, wx.EXPAND)
+        vSizer.Add(
+            StaticText(
+                self,
+                -1,
+                f"Removing from disk will move the selected item{'' if single else 's'} to your trash.",
+            ),
+            0,
+            wx.EXPAND,
+        )
 
         vSizer.AddStretchSpacer()
 

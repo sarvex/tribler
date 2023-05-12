@@ -36,7 +36,9 @@ class TorrentDef(object):
     def __init__(self, input=None, metainfo=None, infohash=None):
         """ Normal constructor for TorrentDef (The input, metainfo and infohash
         parameters are used internally to make this a copy constructor) """
-        assert infohash is None or isinstance(infohash, str), "INFOHASH has invalid type: %s" % type(infohash)
+        assert infohash is None or isinstance(
+            infohash, str
+        ), f"INFOHASH has invalid type: {type(infohash)}"
         assert infohash is None or len(infohash) == INFOHASH_LENGTH, "INFOHASH has invalid length: %d" % len(infohash)
 
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -50,7 +52,7 @@ class TorrentDef(object):
 
         self.input = {}  # fields added by user, waiting to be turned into torrent file
         # Define the built-in default here
-        self.input.update(TDEF_DEFAULTS)
+        self.input |= TDEF_DEFAULTS
         self.input['encoding'] = sys.getfilesystemencoding()
 
         self.input['files'] = []
@@ -88,31 +90,33 @@ class TorrentDef(object):
         data = bdecode(data)
         return TorrentDef._create(data)
 
-    def _read(stream):
+    def _read(self):
         """ Internal class method that reads a torrent file from stream,
         checks it for correctness and sets self.input and self.metainfo
         accordingly. """
-        bdata = stream.read()
-        stream.close()
+        bdata = self.read()
+        self.close()
         data = bdecode(bdata)
         return TorrentDef._create(data)
     _read = staticmethod(_read)
 
-    def _create(metainfo):  # TODO: replace with constructor
+    def _create(self):  # TODO: replace with constructor
         # raises ValueErrors if not good
-        validTorrentFile(metainfo)
+        validTorrentFile(self)
 
         t = TorrentDef()
-        t.metainfo = metainfo
+        t.metainfo = self
         t.metainfo_valid = True
         # copy stuff into self.input
         maketorrent.copy_metainfo_to_input(t.metainfo, t.input)
 
         # Two places where infohash calculated, here and in maketorrent.py
         # Elsewhere: must use TorrentDef.get_infohash() to allow P2PURLs.
-        t.infohash = sha1(bencode(metainfo['info'])).digest()
+        t.infohash = sha1(bencode(self['info'])).digest()
 
-        assert isinstance(t.infohash, str), "INFOHASH has invalid type: %s" % type(t.infohash)
+        assert isinstance(
+            t.infohash, str
+        ), f"INFOHASH has invalid type: {type(t.infohash)}"
         assert len(t.infohash) == INFOHASH_LENGTH, "INFOHASH has invalid length: %d" % len(t.infohash)
 
         return t
@@ -275,27 +279,22 @@ class TorrentDef(object):
                     if tracker and tracker not in trackers:
                         trackers.append(tracker)
             return tuple(trackers)
-        tracker = self.get_tracker()
-        if tracker:
-            return (tracker,)
-        return ()
+        return (tracker, ) if (tracker := self.get_tracker()) else ()
 
     def set_dht_nodes(self, nodes):
         """ Sets the DHT nodes required by the mainline DHT support,
         See http://www.bittorrent.org/beps/bep_0005.html
         @param nodes A list of [hostname,port] lists.
         """
-        # Check input
         if not isinstance(nodes, ListType):
             raise ValueError("nodes not a list")
-        else:
-            for node in nodes:
-                if not isinstance(node, ListType) or len(node) != 2:
-                    raise ValueError("node in nodes not a 2-item list: " + repr(node))
-                if not isinstance(node[0], StringType):
-                    raise ValueError("host in node is not string:" + repr(node))
-                if not isinstance(node[1], IntType):
-                    raise ValueError("port in node is not int:" + repr(node))
+        for node in nodes:
+            if not isinstance(node, ListType) or len(node) != 2:
+                raise ValueError(f"node in nodes not a 2-item list: {repr(node)}")
+            if not isinstance(node[0], StringType):
+                raise ValueError(f"host in node is not string:{repr(node)}")
+            if not isinstance(node[1], IntType):
+                raise ValueError(f"port in node is not int:{repr(node)}")
 
         self.input['nodes'] = nodes
         self.metainfo_valid = False
@@ -341,7 +340,7 @@ class TorrentDef(object):
         """
         for url in value:
             if not isValidURL(url):
-                raise ValueError("Invalid URL: " + repr(url))
+                raise ValueError(f"Invalid URL: {repr(url)}")
 
         self.input['url-list'] = value
         self.metainfo_valid = False
@@ -358,7 +357,7 @@ class TorrentDef(object):
         """
         for url in value:
             if not isValidURL(url):
-                raise ValueError("Invalid URL: " + repr(url))
+                raise ValueError(f"Invalid URL: {repr(url)}")
 
         self.input['httpseeds'] = value
         self.metainfo_valid = False
@@ -376,7 +375,7 @@ class TorrentDef(object):
         (value 0).
         @param value A number of bytes as per the text.
         """
-        if not (isinstance(value, IntType) or isinstance(value, LongType)):
+        if not (isinstance(value, (IntType, LongType))):
             raise ValueError("Piece length not an int/long")
 
         self.input['piece length'] = value
@@ -404,10 +403,7 @@ class TorrentDef(object):
     def get_initial_peers(self):
         """ Returns the list of initial peers.
         @return List of (IP,port) tuples. """
-        if 'initial peers' in self.input:
-            return self.input['initial peers']
-        else:
-            return []
+        return self.input['initial peers'] if 'initial peers' in self.input else []
 
     def finalize(self, userabortflag=None, userprogresscallback=None):
         """ Create BT torrent file by reading the files added with
@@ -443,7 +439,8 @@ class TorrentDef(object):
             self.metainfo_valid = True
 
         assert self.infohash is None or isinstance(
-            self.infohash, str), "INFOHASH has invalid type: %s" % type(self.infohash)
+            self.infohash, str
+        ), f"INFOHASH has invalid type: {type(self.infohash)}"
         assert self.infohash is None or len(
             self.infohash) == INFOHASH_LENGTH, "INFOHASH has invalid length: %d" % len(self.infohash)
 
@@ -510,14 +507,8 @@ class TorrentDef(object):
             if "encoding" in self.metainfo:
                 try:
                     return unicode(self.metainfo["info"]["name"], self.metainfo["encoding"])
-                except UnicodeError:
+                except (UnicodeError, LookupError):
                     pass
-                except LookupError:
-                    # Some encodings are not supported by python.  For
-                    # instance, the MBCS codec which is used by
-                    # Windows is not supported (Jan 2010)
-                    pass
-
             # Try to convert the names in path to unicode, without
             # specifying the encoding
             try:
@@ -540,10 +531,11 @@ class TorrentDef(object):
                     def filter_character(char):
                         if 0 < ord(char) < 128:
                             return char
-                        else:
-                            self._logger.debug("Bad character filter %s, isalnum? %s", ord(char), char.isalnum())
-                            return u"?"
+                        self._logger.debug("Bad character filter %s, isalnum? %s", ord(char), char.isalnum())
+                        return u"?"
+
                     return u"".join([filter_character(char) for char in name])
+
                 return unicode(filter_characters(self.metainfo["info"]["name"]))
             except UnicodeError:
                 pass
@@ -628,15 +620,8 @@ class TorrentDef(object):
                         try:
                             yield join(*[unicode(element, encoding) for element in file_dict["path"]]), file_dict["length"]
                             continue
-                        except UnicodeError:
+                        except (UnicodeError, LookupError):
                             pass
-                        except LookupError:
-                            # Some encodings are not supported by
-                            # python.  For instance, the MBCS codec
-                            # which is used by Windows is not
-                            # supported (Jan 2010)
-                            pass
-
                     # Try to convert the names in path to unicode,
                     # without specifying the encoding
                     try:
@@ -661,11 +646,12 @@ class TorrentDef(object):
                             def filter_character(char):
                                 if 0 < ord(char) < 128:
                                     return char
-                                else:
-                                    self._logger.debug(
-                                        "Bad character filter %s, isalnum? %s", ord(char), char.isalnum())
-                                    return u"?"
+                                self._logger.debug(
+                                    "Bad character filter %s, isalnum? %s", ord(char), char.isalnum())
+                                return u"?"
+
                             return u"".join([filter_character(char) for char in name])
+
                         yield join(*[unicode(filter_characters(element)) for element in file_dict["path"]]), file_dict["length"]
                         continue
                     except UnicodeError:
@@ -742,22 +728,23 @@ class TorrentDef(object):
 
         info = self.metainfo['info']
 
-        if file is not None and 'files' in info:
-            for i in range(len(info['files'])):
-                x = info['files'][i]
-
-                intorrentpath = maketorrent.pathlist2filename(x['path'])
-                if intorrentpath == file:
-                    return i
-            return ValueError("File not found in torrent")
-        else:
+        if file is None or 'files' not in info:
             raise ValueError("File not found in single-file torrent")
+        for i in range(len(info['files'])):
+            x = info['files'][i]
+
+            intorrentpath = maketorrent.pathlist2filename(x['path'])
+            if intorrentpath == file:
+                return i
+        return ValueError("File not found in torrent")
 
 
 class TorrentDefNoMetainfo(object):
 
     def __init__(self, infohash, name, url=None):
-        assert isinstance(infohash, str), "INFOHASH has invalid type: %s" % type(infohash)
+        assert isinstance(
+            infohash, str
+        ), f"INFOHASH has invalid type: {type(infohash)}"
         assert len(infohash) == INFOHASH_LENGTH, "INFOHASH has invalid length: %d" % len(infohash)
         self.infohash = infohash
         self.name = name

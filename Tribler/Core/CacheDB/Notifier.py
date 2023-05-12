@@ -43,7 +43,7 @@ class Notifier(object):
                     with id=='a_search_id' come in
         """
         assert isinstance(changeTypes, list)
-        assert subject in self.SUBJECTS, 'Subject %s not in SUBJECTS' % subject
+        assert subject in self.SUBJECTS, f'Subject {subject} not in SUBJECTS'
 
         obs = (func, subject, changeTypes, id, cache)
         self.observerLock.acquire()
@@ -75,7 +75,7 @@ class Notifier(object):
         Notify all interested observers about an event with threads from the pool
         """
         tasks = []
-        assert subject in self.SUBJECTS, 'Subject %s not in SUBJECTS' % subject
+        assert subject in self.SUBJECTS, f'Subject {subject} not in SUBJECTS'
 
         args = [subject, changeType, obj_id] + list(args)
 
@@ -107,7 +107,7 @@ class Notifier(object):
                                         ofunc(events)
 
                             t = threading.Timer(cache, doQueue, (ofunc,))
-                            t.setName("Notifier-timer-%s" % subject)
+                            t.setName(f"Notifier-timer-{subject}")
                             t.start()
 
                             self.observerscache[ofunc] = []

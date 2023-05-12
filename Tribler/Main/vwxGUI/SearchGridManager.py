@@ -109,8 +109,7 @@ class TorrentManager(object):
     def loadTorrent(self, torrent, callback=None):
         if not isinstance(torrent, CollectedTorrent):
             if torrent.torrent_id <= 0:
-                torrent_id = self.torrent_db.getTorrentID(torrent.infohash)
-                if torrent_id:
+                if torrent_id := self.torrent_db.getTorrentID(torrent.infohash):
                     torrent.update_torrent_id(torrent_id)
 
             if not self.session.has_collected_torrent(torrent.infohash):
@@ -150,10 +149,19 @@ class TorrentManager(object):
             return torrent
 
     def getTorrentByInfohash(self, infohash):
-        dict = self.torrent_db.getTorrent(infohash, keys=['C.torrent_id', 'infohash', 'name',
-                                                          'length', 'category', 'status', 'num_seeders',
-                                                          'num_leechers'])
-        if dict:
+        if dict := self.torrent_db.getTorrent(
+            infohash,
+            keys=[
+                'C.torrent_id',
+                'infohash',
+                'name',
+                'length',
+                'category',
+                'status',
+                'num_seeders',
+                'num_leechers',
+            ],
+        ):
             t = Torrent(dict['C.torrent_id'], dict['infohash'], dict['name'], dict['length'],
                         dict['category'], dict['status'], dict['num_seeders'], dict['num_leechers'], None)
             t.torrent_db = self.torrent_db
@@ -451,12 +459,11 @@ class TorrentManager(object):
             if self.searchkeywords == keywords:
                 # get all channel information
                 channel_cache_dict = {}
-                channel_cid_list = []
-                for result in result_list:
-                    if result['channel'] is not None:
-                        channel_cid_list.append(result['channel']['dispersy_cid'])
-
-                if len(channel_cid_list) > 0:
+                if channel_cid_list := [
+                    result['channel']['dispersy_cid']
+                    for result in result_list
+                    if result['channel'] is not None
+                ]:
                     _, channels = self.channel_manager.getChannelsByCID(channel_cid_list)
                     for channel in channels:
                         channel_cache_dict[channel.dispersy_cid] = channel
@@ -718,8 +725,8 @@ class LibraryManager(object):
             else:
                 selectedinfilename = self.guiUtility.SelectVideo(videofiles, selectedinfilename)
 
-            if not selectedinfilename:
-                return
+        if not selectedinfilename:
+            return
 
         fileindex = tdef.get_files_as_unicode().index(selectedinfilename)
         videoplayer = self._get_videoplayer()
@@ -765,11 +772,12 @@ class LibraryManager(object):
                 self.torrentsearch_manager.downloadTorrentfileFromPeers(torrent, callback)
 
     def stopTorrent(self, infohash):
-        assert isinstance(infohash, str), "infohash is of type %s" % type(infohash)
-        assert len(infohash) == 20, "infohash length is not 20: %s, %s" % (len(infohash), infohash)
+        assert isinstance(infohash, str), f"infohash is of type {type(infohash)}"
+        assert (
+            len(infohash) == 20
+        ), f"infohash length is not 20: {len(infohash)}, {infohash}"
 
-        download = self.session.get_download(infohash)
-        if download:
+        if download := self.session.get_download(infohash):
             self.stopVideoIfEqual(download)
             download.stop()
 
@@ -816,8 +824,8 @@ class LibraryManager(object):
 
         if len(results) > 0:
             channelDict = {}
-            channels = set((result[0] for result in results))
-            if len(channels) > 0:
+            channels = {result[0] for result in results}
+            if channels:
                 _, channels = self.channelsearch_manager.getChannels(channels)
                 for channel in channels:
                     channelDict[channel.id] = channel
@@ -922,13 +930,13 @@ class ChannelManager(object):
 
         self.category = Category.getInstance()
 
-    def getInstance(*args, **kw):
+    def getInstance(self, **kw):
         if ChannelManager.__single is None:
-            ChannelManager.__single = ChannelManager(*args, **kw)
+            ChannelManager.__single = ChannelManager(*self, **kw)
         return ChannelManager.__single
     getInstance = staticmethod(getInstance)
 
-    def delInstance(*args, **kw):
+    def delInstance(self, **kw):
         ChannelManager.__single = None
     delInstance = staticmethod(delInstance)
 
@@ -982,8 +990,7 @@ class ChannelManager(object):
         return community.get_channel_mode()
 
     def getChannelStateByCID(self, dispersy_cid):
-        community = self._disp_get_community_from_cid(dispersy_cid)
-        if community:
+        if community := self._disp_get_community_from_cid(dispersy_cid):
             return community.get_channel_mode()
 
     def setChannelState(self, channel_id, channel_mode):
@@ -1055,9 +1062,8 @@ class ChannelManager(object):
         hits = self.channelcast_db.getTorrentsNotInPlaylist(channel.id, CHANNEL_REQ_COLUMNS)
         results = self._createTorrents(hits, filterTorrents, {channel.id: channel})
 
-        if isinstance(channel, RemoteChannel):
-            if len(results) == 0:
-                return channel.torrents
+        if isinstance(channel, RemoteChannel) and len(results) == 0:
+            return channel.torrents
         return results
 
     def getTorrentsFromPlaylist(self, playlist, filterTorrents=True, limit=None):
@@ -1073,10 +1079,7 @@ class ChannelManager(object):
         return self._createTorrents(hits, filterTorrents, {playlist.channel.id: playlist.channel}, playlist)
 
     def populateWithPlaylists(self, torrents):
-        torrentdict = {}
-        for torrent in torrents:
-            torrentdict[torrent.channeltorrent_id] = torrent
-
+        torrentdict = {torrent.channeltorrent_id: torrent for torrent in torrents}
         hits = self.channelcast_db.getPlaylistsForTorrents(torrentdict.keys(), PLAYLIST_REQ_COLUMNS)
         for hit in hits:
             torrent = torrentdict[hit[0]]
@@ -1098,16 +1101,18 @@ class ChannelManager(object):
                 return ct
 
     def _createTorrents(self, hits, filterTorrents, channel_dict={}, playlist=None):
-        fetch_channels = set(hit[0] for hit in hits if hit[0] not in channel_dict)
-        if len(fetch_channels) > 0:
+        if fetch_channels := {
+            hit[0] for hit in hits if hit[0] not in channel_dict
+        }:
             _, channels = self.getChannels(fetch_channels)
             for channel in channels:
                 channel_dict[channel.id] = channel
 
         torrents = []
         for hit in hits:
-            torrent = self._createTorrent(hit, channel_dict.get(hit[0], None), playlist, addDs=False)
-            if torrent:
+            if torrent := self._createTorrent(
+                hit, channel_dict.get(hit[0], None), playlist, addDs=False
+            ):
                 torrents.append(torrent)
 
         self.library_manager.addDownloadStates(torrents)
@@ -1326,14 +1331,14 @@ class ChannelManager(object):
             else:
                 to_be_removed.add(dispersy_id)
 
-        if len(to_be_created) > 0 or len(to_be_removed) > 0:
+        if to_be_created or to_be_removed:
             community = self._disp_get_community_from_channel_id(channel_id)
 
-            if len(to_be_created) > 0:
-                community.create_playlist_torrents(playlist_id, to_be_created)
+        if to_be_created:
+            community.create_playlist_torrents(playlist_id, to_be_created)
 
-            if len(to_be_removed) > 0:
-                community.remove_playlist_torrents(playlist_id, to_be_removed)
+        if to_be_removed:
+            community.remove_playlist_torrents(playlist_id, to_be_removed)
 
     @call_on_reactor_thread
     def addPlaylistTorrent(self, playlist, torrent):
@@ -1418,8 +1423,9 @@ class ChannelManager(object):
 
     @call_on_reactor_thread
     def removeTorrent(self, channel, infohash):
-        torrent = self.getTorrentFromChannel(channel, infohash, collectedOnly=False)
-        if torrent:
+        if torrent := self.getTorrentFromChannel(
+            channel, infohash, collectedOnly=False
+        ):
             community = self._disp_get_community_from_channel_id(channel.id)
             community.remove_torrents([torrent.dispersy_id])
 
@@ -1433,8 +1439,7 @@ class ChannelManager(object):
 
     @call_on_reactor_thread
     def removePlaylist(self, channel, playlist_id):
-        playlist = self.getPlaylist(channel, playlist_id)
-        if playlist:
+        if playlist := self.getPlaylist(channel, playlist_id):
             community = self._disp_get_community_from_channel_id(channel.id)
             community.remove_playlists([playlist.dispersy_id])
 
@@ -1463,10 +1468,7 @@ class ChannelManager(object):
         comment = comment.strip()
         comment = comment[:1023]
         if len(comment) > 0:
-            playlist_id = None
-            if playlist:
-                playlist_id = playlist.id
-
+            playlist_id = playlist.id if playlist else None
             community = self._disp_get_community_from_channel_id(channel.id)
             community.create_comment(comment, long(time()), reply_to, reply_after, playlist_id, infohash)
 
@@ -1608,8 +1610,8 @@ class ChannelManager(object):
 
     def gotDispersyRemoteHits(self, subject, changetype, objectID, results):
         kws = results['keywords']
-        result_list = results['result_list']
         if self.searchkeywords == kws:
+            result_list = results['result_list']
             channels = result_list
             _, dispersyChannels = self._createChannels(channels)
 

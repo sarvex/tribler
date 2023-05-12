@@ -62,10 +62,14 @@ class ChannelManager(TaskManager):
         :param mode: Mode of the Channel ('open', 'semi-open', or 'closed').
         :param rss_url: RSS URL for the Channel.
         """
-        assert isinstance(name, basestring), u"name is not a basestring: %s" % type(name)
-        assert isinstance(description, basestring), u"description is not a basestring: %s" % type(description)
-        assert mode in self._channel_mode_map, u"invalid mode: %s" % mode
-        assert isinstance(rss_url, basestring) or rss_url is None, u"rss_url is not a basestring or None: %s" % type(rss_url)
+        assert isinstance(name, basestring), f"name is not a basestring: {type(name)}"
+        assert isinstance(
+            description, basestring
+        ), f"description is not a basestring: {type(description)}"
+        assert mode in self._channel_mode_map, f"invalid mode: {mode}"
+        assert (
+            isinstance(rss_url, basestring) or rss_url is None
+        ), f"rss_url is not a basestring or None: {type(rss_url)}"
 
         # if two channels have the same name, this will not work
         for channel_object in self._channel_list:
@@ -96,12 +100,10 @@ class ChannelManager(TaskManager):
         Gets the ChannelObject with the given channel id.
         :return: The ChannelObject if exists, otherwise None.
         """
-        channel_object = None
-        for obj in self._channel_list:
-            if obj.channel_id == channel_id:
-                channel_object = obj
-                break
-        return channel_object
+        return next(
+            (obj for obj in self._channel_list if obj.channel_id == channel_id),
+            None,
+        )
 
     def get_channel(self, name):
         """
@@ -109,12 +111,7 @@ class ChannelManager(TaskManager):
         :param name: Channel name.
         :return: The channel object if exists, otherwise None.
         """
-        channel_object = None
-        for obj in self._channel_list:
-            if obj.name == name:
-                channel_object = obj
-                break
-        return channel_object
+        return next((obj for obj in self._channel_list if obj.name == name), None)
 
     def get_channel_list(self):
         """

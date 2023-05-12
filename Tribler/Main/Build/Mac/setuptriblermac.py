@@ -149,10 +149,7 @@ includeModules = ["encodings.hex_codec", "encodings.utf_8", "encodings.latin_1",
 includePanels = [
     "list", "list_header", "list_body", "list_footer", "list_details",
     "home", "settingsDialog", "TopSearchPanel", "SearchGridManager", "SRstatusbar"]
-    # ,"btn_DetailsHeader","tribler_List","TopSearchPanel","settingsOverviewPanel"] # TextButton
-
-
-includeModules += ["Tribler.Main.vwxGUI.%s" % x for x in includePanels]
+includeModules += [f"Tribler.Main.vwxGUI.{x}" for x in includePanels]
 
 # ----- some basic checks
 
@@ -218,14 +215,12 @@ def includedir(srcpath, dstpath=None):
         if '.svn' in dirs:
             dirs.remove('.svn')
 
-        for f in files:
-            total.append((root, f))
-
+        total.extend((root, f) for f in files)
     os.chdir(cwd)
 
     # format: (targetdir,[file])
     # so for us, (dstpath/filedir,[srcpath/filedir/filename])
-    return [("%s/%s" % (dstpath, root), ["%s/%s/%s" % (srcpath, root, f)]) for root, f in total]
+    return [(f"{dstpath}/{root}", [f"{srcpath}/{root}/{f}"]) for root, f in total]
 
 
 def filterincludes(l, f):
@@ -241,38 +236,54 @@ setup(
     setup_requires=['py2app'],
     name='Tribler',
     app=[mainfile],
-    options={'py2app': {
-        'argv_emulation': True,
-        'includes': includeModules,
-        'excludes': ["Tkinter", "Tkconstants", "tcl"],
-        'iconfile': LIBRARYNAME + '/Main/Build/Mac/tribler.icns',
-        'plist': Plist.fromFile(LIBRARYNAME + '/Main/Build/Mac/Info.plist'),
-        'optimize': 0 if __debug__ else 2,
-        'resources':
-            [(LIBRARYNAME + "/Category", [LIBRARYNAME + "/Category/category.conf"]),
-             (LIBRARYNAME + "/Core/DecentralizedTracking/pymdht/core",
-              [LIBRARYNAME + "/Core/DecentralizedTracking/pymdht/core/bootstrap_stable"]),
-             (LIBRARYNAME + "/Core/DecentralizedTracking/pymdht/core",
-              [LIBRARYNAME + "/Core/DecentralizedTracking/pymdht/core/bootstrap_unstable"]),
-             LIBRARYNAME + "/readme.txt",
-             LIBRARYNAME + "/Main/Build/Mac/TriblerDoc.icns",
-             ]
-            + ["/Users/tribler/Workspace_new/install/lib/libsodium.dylib"]
-
-            # add images
-            + includedir(LIBRARYNAME + "/Main/vwxGUI/images")
-            + includedir(LIBRARYNAME + "/Main/webUI/static")
-
-            # add GUI elements
-            + filterincludes(includedir(LIBRARYNAME + "/Main/vwxGUI"), lambda x: x.endswith(".xrc"))
-
-            # add crawler info and SQL statements
-            + filterincludes(includedir(LIBRARYNAME + "/"), lambda x: x.endswith(".sql"))
-
-            # add VLC plugins
-            + includedir("vlc")
-
-            # add ffmpeg binary
-            + [("vlc", ["vlc/ffmpeg"])],
-    }}
+    options={
+        'py2app': {
+            'argv_emulation': True,
+            'includes': includeModules,
+            'excludes': ["Tkinter", "Tkconstants", "tcl"],
+            'iconfile': f'{LIBRARYNAME}/Main/Build/Mac/tribler.icns',
+            'plist': Plist.fromFile(
+                f'{LIBRARYNAME}/Main/Build/Mac/Info.plist'
+            ),
+            'optimize': 0 if __debug__ else 2,
+            'resources': (
+                (
+                    [
+                        (
+                            f"{LIBRARYNAME}/Category",
+                            [f"{LIBRARYNAME}/Category/category.conf"],
+                        ),
+                        (
+                            f"{LIBRARYNAME}/Core/DecentralizedTracking/pymdht/core",
+                            [
+                                f"{LIBRARYNAME}/Core/DecentralizedTracking/pymdht/core/bootstrap_stable"
+                            ],
+                        ),
+                        (
+                            f"{LIBRARYNAME}/Core/DecentralizedTracking/pymdht/core",
+                            [
+                                f"{LIBRARYNAME}/Core/DecentralizedTracking/pymdht/core/bootstrap_unstable"
+                            ],
+                        ),
+                        f"{LIBRARYNAME}/readme.txt",
+                        f"{LIBRARYNAME}/Main/Build/Mac/TriblerDoc.icns",
+                    ]
+                    + [
+                        "/Users/tribler/Workspace_new/install/lib/libsodium.dylib"
+                    ]
+                )
+                + includedir(f"{LIBRARYNAME}/Main/vwxGUI/images")
+                + includedir(f"{LIBRARYNAME}/Main/webUI/static")
+                + filterincludes(
+                    includedir(f"{LIBRARYNAME}/Main/vwxGUI"),
+                    lambda x: x.endswith(".xrc"),
+                )
+                + filterincludes(
+                    includedir(f"{LIBRARYNAME}/"), lambda x: x.endswith(".sql")
+                )
+                + includedir("vlc")
+                + [("vlc", ["vlc/ffmpeg"])]
+            ),
+        }
+    },
 )

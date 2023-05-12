@@ -28,7 +28,7 @@ class AutoWidthListCtrl(wx.ListCtrl, ListCtrlAutoWidthMixin):
         old_count = self.GetItemCount()
         new_count = len(data_list)
 
-        to_modify_count = new_count if new_count < old_count else old_count
+        to_modify_count = min(new_count, old_count)
         to_append_count = new_count - to_modify_count
         to_delete_count = old_count - new_count
 
@@ -224,15 +224,13 @@ class DispersySummaryPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.__info_list[1][1] = "%s:%d" % stats.lan_address
             self.__info_list[2][1] = unicode(stats.connection_type)
 
-            self.__info_list[3][1] = "%s" % eta_value(stats.timestamp - stats.start)
-            self.__info_list[4][1] = "%s or %s/s" % (
-                size_format(stats.total_down),
-                size_format(int(stats.total_down / (stats.timestamp - stats.start)))
-            )
-            self.__info_list[5][1] = "%s or %s/s" % (
-                size_format(stats.total_up),
-                size_format(int(stats.total_up / (stats.timestamp - stats.start)))
-            )
+            self.__info_list[3][1] = f"{eta_value(stats.timestamp - stats.start)}"
+            self.__info_list[4][
+                1
+            ] = f"{size_format(stats.total_down)} or {size_format(int(stats.total_down / (stats.timestamp - stats.start)))}/s"
+            self.__info_list[5][
+                1
+            ] = f"{size_format(stats.total_up)} or {size_format(int(stats.total_up / (stats.timestamp - stats.start)))}/s"
             self.__info_list[6][1] = compute_ratio(stats.total_send, stats.total_received + stats.total_send)
             self.__info_list[7][1] = compute_ratio(stats.total_received, stats.total_received + stats.total_send)
             self.__info_list[8][1] = compute_ratio(stats.msg_statistics.success_count, stats.total_received)
@@ -245,7 +243,7 @@ class DispersySummaryPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.__info_list[13][1] = compute_ratio(stats.msg_statistics.delay_timeout_count,
                                                     stats.msg_statistics.delay_received_count)
             self.__info_list[14][1] = compute_ratio(stats.walk_success_count, stats.walk_attempt_count)
-            self.__info_list[15][1] = "%s" % stats.msg_statistics.created_count
+            self.__info_list[15][1] = f"{stats.msg_statistics.created_count}"
             self.__info_list[16][1] = compute_ratio(sum(c.sync_bloom_new for c in stats.communities),
                                                     sum(c.sync_bloom_send + c.sync_bloom_skip
                                                         for c in stats.communities))
@@ -305,21 +303,31 @@ class CommunityPanel(wx.Panel):
         self.__detail_panel.UpdateInfo(community_data)
 
     def UpdateInfo(self, stats):
-        community_list = sorted(stats.communities, key=lambda community:
-                                (not community.dispersy_enable_candidate_walker,
-                                 community.classification, community.cid))
         self.__community_data_list = []
         reselect_community_idx = None
-        idx = 0
         community_list_for_update = []
-        for community in community_list:
+        community_list = sorted(
+            stats.communities,
+            key=lambda community: (
+                not community.dispersy_enable_candidate_walker,
+                community.classification,
+                community.cid,
+            ),
+        )
+        for idx, community in enumerate(community_list):
             candidate_list = None
             if community.dispersy_enable_candidate_walker or \
-                    community.dispersy_enable_candidate_walker_responses:
+                        community.dispersy_enable_candidate_walker_responses:
                 candidate_count = "%d " % len(community.candidates)
-                candidate_list = [("%s" % global_time, "%s:%s" % lan, "%s:%s" % wan,
-                                   "%s" % binascii.hexlify(mid) if mid else DATA_NONE)
-                                  for lan, wan, global_time, mid in community.candidates]
+                candidate_list = [
+                    (
+                        f"{global_time}",
+                        "%s:%s" % lan,
+                        "%s:%s" % wan,
+                        f"{binascii.hexlify(mid)}" if mid else DATA_NONE,
+                    )
+                    for lan, wan, global_time, mid in community.candidates
+                ]
                 candidate_list.sort()
             elif community.candidates:
                 candidate_count = "%d*" % len(community.candidates)
@@ -327,55 +335,65 @@ class CommunityPanel(wx.Panel):
                 candidate_count = "-"
 
             median_global_time = "%d (%d difference)" % \
-                (community.acceptable_global_time - community.dispersy_acceptable_global_time_range,
+                    (community.acceptable_global_time - community.dispersy_acceptable_global_time_range,
                  community.acceptable_global_time - community.global_time -
                     community.dispersy_acceptable_global_time_range)
 
             database_list = []
             if community.database:
-                database_str = "%d packets" % \
-                    sum(count for count in community.database.itervalues())
-                for name, count in sorted(community.database.iteritems(), key=lambda tup: tup[1]):
-                    database_list.append(("%s" % count, "%s" % name))
+                database_str = "%d packets" % sum(community.database.itervalues())
+                database_list.extend(
+                    (f"{count}", f"{name}")
+                    for name, count in sorted(
+                        community.database.iteritems(), key=lambda tup: tup[1]
+                    )
+                )
             else:
                 database_str = "? packets"
 
             community_data = {
-                "Identifier": "%s" % community.hex_cid,
-                "Member": "%s" % community.hex_mid,
-                "Classification": "%s" % community.classification,
-                "Database id": "%s" % community.database_id,
-                "Global time": "%s" % community.global_time,
-                "Median global time": "%s" % median_global_time,
-                "Acceptable range": "%s" % community.dispersy_acceptable_global_time_range,
-                "Walk success": "%s" % compute_ratio(community.msg_statistics.walk_success_count,
-                                                     community.msg_statistics.walk_attempt_count),
-                "Sync bloom created": "%s" % community.sync_bloom_new,
-                "Sync bloom reused": "%s" % community.sync_bloom_reuse,
-                "Sync bloom skipped": "%s" % community.sync_bloom_skip,
-                "Candidates": "%s" % candidate_count,
+                "Identifier": f"{community.hex_cid}",
+                "Member": f"{community.hex_mid}",
+                "Classification": f"{community.classification}",
+                "Database id": f"{community.database_id}",
+                "Global time": f"{community.global_time}",
+                "Median global time": f"{median_global_time}",
+                "Acceptable range": f"{community.dispersy_acceptable_global_time_range}",
+                "Walk success": f"{compute_ratio(community.msg_statistics.walk_success_count, community.msg_statistics.walk_attempt_count)}",
+                "Sync bloom created": f"{community.sync_bloom_new}",
+                "Sync bloom reused": f"{community.sync_bloom_reuse}",
+                "Sync bloom skipped": f"{community.sync_bloom_skip}",
+                "Candidates": f"{candidate_count}",
                 "Candidate_list": candidate_list,
                 "Database": database_str,
                 "Database_list": database_list,
-                "Packets Created": "%s" % community.msg_statistics.created_count,
-                "Packets Sent": "%s" % compute_ratio(community.msg_statistics.outgoing_count,
-                                                     community.msg_statistics.outgoing_count
-                                                     + community.msg_statistics.total_received_count),
-                "Packets Received": "%s" % compute_ratio(community.msg_statistics.total_received_count,
-                                                         community.msg_statistics.outgoing_count
-                                                         + community.msg_statistics.total_received_count),
-                "Packets Success": compute_ratio(community.msg_statistics.success_count,
-                                                 community.msg_statistics.total_received_count),
-                "Packets Dropped": compute_ratio(community.msg_statistics.drop_count,
-                                                 community.msg_statistics.total_received_count),
-                "Packets Delayed Sent": compute_ratio(community.msg_statistics.delay_send_count,
-                                                      community.msg_statistics.total_received_count),
-                "Packets Delayed Received": compute_ratio(community.msg_statistics.delay_received_count,
-                                                          community.msg_statistics.total_received_count),
-                "Packets Delayed Success": compute_ratio(community.msg_statistics.delay_success_count,
-                                                         community.msg_statistics.delay_received_count),
-                "Packets Delayed Timeout": compute_ratio(community.msg_statistics.delay_timeout_count,
-                                                         community.msg_statistics.delay_received_count),
+                "Packets Created": f"{community.msg_statistics.created_count}",
+                "Packets Sent": f"{compute_ratio(community.msg_statistics.outgoing_count, community.msg_statistics.outgoing_count + community.msg_statistics.total_received_count)}",
+                "Packets Received": f"{compute_ratio(community.msg_statistics.total_received_count, community.msg_statistics.outgoing_count + community.msg_statistics.total_received_count)}",
+                "Packets Success": compute_ratio(
+                    community.msg_statistics.success_count,
+                    community.msg_statistics.total_received_count,
+                ),
+                "Packets Dropped": compute_ratio(
+                    community.msg_statistics.drop_count,
+                    community.msg_statistics.total_received_count,
+                ),
+                "Packets Delayed Sent": compute_ratio(
+                    community.msg_statistics.delay_send_count,
+                    community.msg_statistics.total_received_count,
+                ),
+                "Packets Delayed Received": compute_ratio(
+                    community.msg_statistics.delay_received_count,
+                    community.msg_statistics.total_received_count,
+                ),
+                "Packets Delayed Success": compute_ratio(
+                    community.msg_statistics.delay_success_count,
+                    community.msg_statistics.delay_received_count,
+                ),
+                "Packets Delayed Timeout": compute_ratio(
+                    community.msg_statistics.delay_timeout_count,
+                    community.msg_statistics.delay_received_count,
+                ),
                 "Statistics": community,
             }
             # update community data list
@@ -390,8 +408,6 @@ class CommunityPanel(wx.Panel):
 
             if self.__selected_community_identifier == community_data["Identifier"]:
                 reselect_community_idx = idx
-            idx += 1
-
         # update community detail
         self.__listctrl.UpdateData(community_list_for_update)
         community_data_for_update = None
@@ -541,35 +557,31 @@ class RawInfoPanel(wx.Panel):
                 self.__info.append((category, []))
 
         for category in self.__MSG_CATEGORIES:
-            dict_name = "%s_dict" % category
+            dict_name = f"{category}_dict"
             if getattr(stats.msg_statistics, dict_name, None):
                 raw_info[category] = getattr(stats.msg_statistics, dict_name).items()
                 category_list.append(category)
                 self.__info.append((category, []))
 
-        idx = 0
         reselect_category_idx = None
-        for category in category_list:
+        for idx, category in enumerate(category_list):
             data_list = raw_info[category]
             data_list.sort(key=lambda kv: kv[1], reverse=True)
             total_count = 0
             for key, value in data_list:
-                count_str = "%s" % value
+                count_str = f"{value}"
                 total_count += value
 
-                if category in self.__IP_CATEGORIES:
-                    if isinstance(key, tuple):
-                        info_str = "%s:%s" % key
-                    else:
-                        info_str = str2unicode(key)
-                elif category == "attachment":
-                    info_str = "%s" % binascii.hexlify(key)
-                else:
+                if category in self.__IP_CATEGORIES and isinstance(key, tuple):
+                    info_str = "%s:%s" % key
+                elif category in self.__IP_CATEGORIES or category != "attachment":
                     info_str = str2unicode(key)
+                else:
+                    info_str = f"{binascii.hexlify(key)}"
                 self.__info[idx][1].append((count_str, info_str))
 
             # update category list
-            total_count = "%s" % total_count
+            total_count = f"{total_count}"
             if idx < self.__category_list.GetItemCount():
                 self.__category_list.SetStringItem(idx, 0, category_list[idx])
                 self.__category_list.SetStringItem(idx, 1, total_count)
@@ -579,7 +591,6 @@ class RawInfoPanel(wx.Panel):
             # check selected category
             if self.__selected_category == category:
                 reselect_category_idx = idx
-            idx += 1
         while self.__category_list.GetItemCount() > len(category_list):
             self.__category_list.DeleteItem(self.__category_list.GetItemCount() - 1)
 
@@ -635,8 +646,9 @@ class RuntimeProfilingPanel(wx.Panel):
         self.__list2.DeleteAllItems()
         data_list = self.__combined_list[this_idx][4]
         for duration, entry, average, count in data_list:
-            self.__list2.Append([u"%7.2f" % duration, u"%s" % entry,
-                                 u"%7.2f" % average, u"%s" % count])
+            self.__list2.Append(
+                [u"%7.2f" % duration, f"{entry}", u"%7.2f" % average, f"{count}"]
+            )
 
     def UpdateInfo(self, stats):
         self.__list1.DeleteAllItems()
@@ -662,7 +674,7 @@ class RuntimeProfilingPanel(wx.Panel):
 
             if combined_name not in combined_dict:
                 # total-duration, average, count, and data-list
-                combined_dict[combined_name] = [0, 0, 0, list()]
+                combined_dict[combined_name] = [0, 0, 0, []]
 
             combined_dict[combined_name][0] += processed_data["duration"]
             combined_dict[combined_name][1] += processed_data["average"]
@@ -678,12 +690,12 @@ class RuntimeProfilingPanel(wx.Panel):
         self.__combined_list = combined_list
 
         prev_selection_idx = None
-        idx = 0
-        for duration, entry, average, count, _ in combined_list:
+        for idx, (duration, entry, average, count, _) in enumerate(combined_list):
             if entry == prev_selection_name:
                 prev_selection_idx = idx
-            idx += 1
-            self.__list1.Append([u"%7.2f" % duration, u"%s" % entry, u"%7.2f" % average, u"%s" % count])
+            self.__list1.Append(
+                [u"%7.2f" % duration, f"{entry}", u"%7.2f" % average, f"{count}"]
+            )
 
         if prev_selection_idx is not None:
             self.__list1.Select(prev_selection_idx)
@@ -735,12 +747,11 @@ class SharedStatisticsPanel(wx.Panel):
             self.__detail_list.DeleteAllItems()
             return
 
-        idx = 0
         # initialize info list so we can replace elements
         if not self.__info or len(self.__info) < len(self.__STATISTICS):
             self.__info = [None] * len(self.__STATISTICS)
 
-        for stat in self.__STATISTICS:
+        for idx, stat in enumerate(self.__STATISTICS):
 
             self.__info[idx] = (stat, [])
             raw_info[stat] = stats.bartercast[stat]
@@ -760,11 +771,11 @@ class SharedStatisticsPanel(wx.Panel):
 
                 # only draw updated values if we are inspecting the statistic
                 # if self.__selected_statistic is stat:
-                peer_str = "%s" % key
-                count_str = "%s" % value
+                peer_str = f"{key}"
+                count_str = f"{value}"
                 self.__info[idx][1].append((peer_str, count_str))
 
-            total_count_str = "%s" % total_count
+            total_count_str = f"{total_count}"
 
             # update GUI
             if idx < self.__statistic_list.GetItemCount():
@@ -772,4 +783,3 @@ class SharedStatisticsPanel(wx.Panel):
                 self.__statistic_list.SetStringItem(idx, 1, total_count_str)
             else:
                 self.__statistic_list.Append([BartercastStatisticTypes.reverse_mapping[stat]])
-            idx += 1

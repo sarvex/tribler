@@ -26,36 +26,29 @@ def normalize_data_dict(data_set, key_to_normalize, key_for_index):
     :param key_for_index: The key for index.
     :return: A dictionary with key_for_index as keys and the normalized data as values.
     """
-    assert isinstance(data_set, list), u"data_set is not list: %s" % type(data_set)
-    assert isinstance(key_to_normalize, basestring), u"key_to_normalize is not basestring: %s" % type(key_to_normalize)
-    assert isinstance(key_for_index, basestring), u"key_for_index is not basestring: %s" % type(key_for_index)
+    assert isinstance(data_set, list), f"data_set is not list: {type(data_set)}"
+    assert isinstance(
+        key_to_normalize, basestring
+    ), f"key_to_normalize is not basestring: {type(key_to_normalize)}"
+    assert isinstance(
+        key_for_index, basestring
+    ), f"key_for_index is not basestring: {type(key_for_index)}"
 
-    total = 0
-    for data in data_set:
-        total += (data.get(key_to_normalize, 0) or 0)
-
-    if len(data_set) > 0:
-        mean = total / len(data_set)
-    else:
-        mean = 0
-
+    total = sum((data.get(key_to_normalize, 0) or 0) for data in data_set)
+    mean = total / len(data_set) if len(data_set) > 0 else 0
     total_sum = 0
     for data in data_set:
         temp = (data.get(key_to_normalize, 0) or 0) - mean
         temp *= temp
         total_sum += temp
 
-    if len(data_set) > 1:
-        dev = total_sum / (len(data_set) - 1)
-    else:
-        dev = 0
-
+    dev = total_sum / (len(data_set) - 1) if len(data_set) > 1 else 0
     std_dev = sqrt(dev)
 
-    return_dict = {}
-    for data in data_set:
-        if std_dev > 0:
-            return_dict[data.get(key_for_index)] = ((data.get(key_to_normalize, 0) or 0) - mean) / std_dev
-        else:
-            return_dict[data.get(key_for_index)] = 0
-    return return_dict
+    return {
+        data.get(key_for_index): ((data.get(key_to_normalize, 0) or 0) - mean)
+        / std_dev
+        if std_dev > 0
+        else 0
+        for data in data_set
+    }

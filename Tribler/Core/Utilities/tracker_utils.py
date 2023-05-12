@@ -18,7 +18,9 @@ url_regex = re.compile(
 #    http://tracker.openbittorrent.com:80/announce
 # ------------------------------------------------------------
 def get_uniformed_tracker_url(tracker_url):
-    assert isinstance(tracker_url, basestring), u"tracker_url is not a basestring: %s" % type(tracker_url)
+    assert isinstance(
+        tracker_url, basestring
+    ), f"tracker_url is not a basestring: {type(tracker_url)}"
 
     # check if the URL is valid unicode data
     try:
@@ -52,9 +54,8 @@ def get_uniformed_tracker_url(tracker_url):
     if host_part.find(u':') == -1:
         if tracker_type == u'udp':
             return
-        else:
-            host = host_part
-            port = 80
+        host = host_part
+        port = 80
     else:
         host, port = host_part.split(u':', 1)
 
@@ -68,7 +69,7 @@ def get_uniformed_tracker_url(tracker_url):
     if tracker_type == u'http':
         # omit the port number if it is 80 for an HTTP tracker
         if port == 80:
-            uniformed_url = u'%s://%s/%s' % (tracker_type, host, page)
+            uniformed_url = f'{tracker_type}://{host}/{page}'
         else:
             uniformed_url = u'%s://%s:%d/%s' % (tracker_type, host, port, page)
     else:
@@ -91,11 +92,10 @@ def parse_tracker_url(tracker_url):
     url_fields = tracker_url.split(u'://')[1]
     # some UDP trackers may not have 'announce' at the end.
     if url_fields.find(u'/') == -1:
-        if tracker_type == u'UDP':
-            hostname_part = url_fields
-            announce_page = None
-        else:
-            raise RuntimeError(u'Invalid tracker URL (%s).' % tracker_url)
+        if tracker_type != u'UDP':
+            raise RuntimeError(f'Invalid tracker URL ({tracker_url}).')
+        hostname_part = url_fields
+        announce_page = None
     else:
         hostname_part, announce_page = url_fields.split(u'/', 1)
 

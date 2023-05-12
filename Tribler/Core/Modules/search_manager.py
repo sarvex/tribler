@@ -91,11 +91,7 @@ class SearchManager(TaskManager):
         # get and cache channels
         channel_cid_list = [result[-1] for result in results if result[-1] is not None]
         channel_cache_list = self.channelcast_db.getChannelsByCID(channel_cid_list)
-        channel_cache_dict = {}
-        for channel in channel_cache_list:
-            # index 1 is cid
-            channel_cache_dict[channel[1]] = channel
-
+        channel_cache_dict = {channel[1]: channel for channel in channel_cache_list}
         # create result dictionaries that are understandable
         for result in results:
             remote_torrent_result = {'torrent_type': 'remote',  # indicates if it is a remote torrent

@@ -16,7 +16,7 @@ from Tribler import LIBRARYNAME
 from Tribler.Core.CacheDB.db_versions import LATEST_DB_VERSION
 
 
-DB_SCRIPT_NAME = u"schema_sdb_v%s.sql" % str(LATEST_DB_VERSION)
+DB_SCRIPT_NAME = f"schema_sdb_v{str(LATEST_DB_VERSION)}.sql"
 DB_SCRIPT_RELATIVE_PATH = os.path.join(LIBRARYNAME, DB_SCRIPT_NAME)
 
 DB_FILE_NAME = u"tribler.sdb"
@@ -97,13 +97,13 @@ class SQLiteCacheDB(TaskManager):
         is_in_memory = self.sqlite_db_path == u":memory:"
         is_new_db = is_in_memory
 
-        # check if database file exists
-        if not is_in_memory:
-            if not os.path.exists(self.sqlite_db_path):
+        if not os.path.exists(self.sqlite_db_path):
+            if not is_new_db:
                 # create a new one
                 is_new_db = True
-            elif not os.path.isfile(self.sqlite_db_path):
-                msg = u"Not a file: %s" % self.sqlite_db_path
+        elif not os.path.isfile(self.sqlite_db_path):
+            if not is_new_db:
+                msg = f"Not a file: {self.sqlite_db_path}"
                 raise OSError(msg)
 
         # create connection
@@ -111,7 +111,7 @@ class SQLiteCacheDB(TaskManager):
             self._connection = apsw.Connection(self.sqlite_db_path)
             self._connection.setbusytimeout(self._busytimeout)
         except CantOpenError as e:
-            msg = u"Failed to open connection to %s: %s" % (self.sqlite_db_path, e)
+            msg = f"Failed to open connection to {self.sqlite_db_path}: {e}"
             raise CantOpenError(msg)
 
         cursor = self.get_cursor()
@@ -148,18 +148,17 @@ class SQLiteCacheDB(TaskManager):
             self._logger.info(u"Initializing new database...")
             # check if the SQL script exists
             if not os.path.exists(self.db_script_path):
-                msg = u"SQL script doesn't exist: %s" % self.db_script_path
+                msg = f"SQL script doesn't exist: {self.db_script_path}"
                 raise OSError(msg)
             if not os.path.isfile(self.db_script_path):
-                msg = u"SQL script is not a file: %s" % self.db_script_path
+                msg = f"SQL script is not a file: {self.db_script_path}"
                 raise OSError(msg)
 
             try:
-                f = open(self.db_script_path, "r")
-                sql_script = f.read()
-                f.close()
+                with open(self.db_script_path, "r") as f:
+                    sql_script = f.read()
             except IOError as e:
-                msg = u"Failed to load SQL script %s: %s" % (self.db_script_path, e)
+                msg = f"Failed to load SQL script {self.db_script_path}: {e}"
                 raise IOError(msg)
 
             cursor.execute(sql_script)
@@ -172,7 +171,7 @@ class SQLiteCacheDB(TaskManager):
                 self._version = int(version_str)
                 self._logger.info(u"Current database version is %s", self._version)
             except (StopIteration, SQLError) as e:
-                msg = u"Failed to load database version: %s" % e
+                msg = f"Failed to load database version: {e}"
                 raise CorruptedDatabaseError(msg)
         else:
             self._version = 1
@@ -198,8 +197,12 @@ class SQLiteCacheDB(TaskManager):
 
     @blocking_call_on_reactor_thread
     def write_version(self, version):
-        assert isinstance(version, int), u"Invalid version type: %s is not int" % type(version)
-        assert version <= LATEST_DB_VERSION, u"Invalid version value: %s > the latest %s" % (version, LATEST_DB_VERSION)
+        assert isinstance(
+            version, int
+        ), f"Invalid version type: {type(version)} is not int"
+        assert (
+            version <= LATEST_DB_VERSION
+        ), f"Invalid version value: {version} > the latest {LATEST_DB_VERSION}"
 
         sql = u"UPDATE MyInfo SET value = ? WHERE entry == 'version'"
         self.execute_write(sql, (version,))
@@ -256,11 +259,7 @@ class SQLiteCacheDB(TaskManager):
             self._logger.info(u"===%s===\n%s\n-----\n%s\n======\n", thread_name, sql, args)
 
         try:
-            if args is None:
-                return cur.execute(sql)
-            else:
-                return cur.execute(sql, args)
-
+            return cur.execute(sql) if args is None else cur.execute(sql, args)
         except Exception as msg:
             if str(msg).startswith(u"BusyError"):
                 self._logger.error(u"cachedb: busylock error")
@@ -282,13 +281,7 @@ class SQLiteCacheDB(TaskManager):
             self._logger.info(u"===%s===\n%s\n-----\n%s\n======\n", thread_name, sql, args)
 
         try:
-            if args is None:
-                result = cur.executemany(sql)
-            else:
-                result = cur.executemany(sql, args)
-
-            return result
-
+            return cur.executemany(sql) if args is None else cur.executemany(sql, args)
         except Exception as msg:
             thread_name = currentThread().getName()
             self._logger.exception(u"===%s===\nSQL Type: %s\n-----\n%s\n-----\n%s\n======\n",
@@ -305,18 +298,18 @@ class SQLiteCacheDB(TaskManager):
 
     def insert_or_ignore(self, table_name, **argv):
         if len(argv) == 1:
-            sql = u'INSERT OR IGNORE INTO %s (%s) VALUES (?);' % (table_name, argv.keys()[0])
+            sql = f'INSERT OR IGNORE INTO {table_name} ({argv.keys()[0]}) VALUES (?);'
         else:
             questions = '?,' * len(argv)
-            sql = u'INSERT OR IGNORE INTO %s %s VALUES (%s);' % (table_name, tuple(argv.keys()), questions[:-1])
+            sql = f'INSERT OR IGNORE INTO {table_name} {tuple(argv.keys())} VALUES ({questions[:-1]});'
         self.execute_write(sql, argv.values())
 
     def insert(self, table_name, **argv):
         if len(argv) == 1:
-            sql = u'INSERT INTO %s (%s) VALUES (?);' % (table_name, argv.keys()[0])
+            sql = f'INSERT INTO {table_name} ({argv.keys()[0]}) VALUES (?);'
         else:
             questions = '?,' * len(argv)
-            sql = u'INSERT INTO %s %s VALUES (%s);' % (table_name, tuple(argv.keys()), questions[:-1])
+            sql = f'INSERT INTO {table_name} {tuple(argv.keys())} VALUES ({questions[:-1]});'
         self.execute_write(sql, argv.values())
 
     # TODO: may remove this, only used by test_sqlitecachedb.py
@@ -325,100 +318,87 @@ class SQLiteCacheDB(TaskManager):
 
         questions = u'?,' * len(values[0])
         if keys is None:
-            sql = u'INSERT INTO %s VALUES (%s);' % (table_name, questions[:-1])
+            sql = f'INSERT INTO {table_name} VALUES ({questions[:-1]});'
         else:
-            sql = u'INSERT INTO %s %s VALUES (%s);' % (table_name, tuple(keys), questions[:-1])
+            sql = f'INSERT INTO {table_name} {tuple(keys)} VALUES ({questions[:-1]});'
         self.executemany(sql, values)
 
     def update(self, table_name, where=None, **argv):
-        assert len(argv) > 0, 'NO VALUES TO UPDATE SPECIFIED'
-        if len(argv) > 0:
-            sql = u'UPDATE %s SET ' % table_name
+        assert argv, 'NO VALUES TO UPDATE SPECIFIED'
+        if argv:
+            sql = f'UPDATE {table_name} SET '
             arg = []
             for k, v in argv.iteritems():
                 if isinstance(v, tuple):
-                    sql += u'%s %s ?,' % (k, v[0])
+                    sql += f'{k} {v[0]} ?,'
                     arg.append(v[1])
                 else:
-                    sql += u'%s=?,' % k
+                    sql += f'{k}=?,'
                     arg.append(v)
             sql = sql[:-1]
             if where is not None:
-                sql += u' WHERE %s' % where
+                sql += f' WHERE {where}'
             self.execute_write(sql, arg)
 
     def delete(self, table_name, **argv):
-        sql = u'DELETE FROM %s WHERE ' % table_name
+        sql = f'DELETE FROM {table_name} WHERE '
         arg = []
         for k, v in argv.iteritems():
             if isinstance(v, tuple):
-                sql += u'%s %s ? AND ' % (k, v[0])
+                sql += f'{k} {v[0]} ? AND '
                 arg.append(v[1])
             else:
-                sql += u'%s=? AND ' % k
+                sql += f'{k}=? AND '
                 arg.append(v)
         sql = sql[:-5]
         self.execute_write(sql, argv.values())
 
     # -------- Read Operations --------
     def size(self, table_name):
-        num_rec_sql = u"SELECT count(*) FROM %s LIMIT 1" % table_name
-        result = self.fetchone(num_rec_sql)
-        return result
+        num_rec_sql = f"SELECT count(*) FROM {table_name} LIMIT 1"
+        return self.fetchone(num_rec_sql)
 
     @blocking_call_on_reactor_thread
     def fetchone(self, sql, args=None):
         find = self.execute_read(sql, args)
         if not find:
             return
+        find = list(find)
+        if find:
+            if len(find) > 1:
+                self._logger.debug(
+                    u"FetchONE resulted in many more rows than one, consider putting a LIMIT 1 in the sql statement %s, %s", sql, len(find))
+            find = find[0]
         else:
-            find = list(find)
-            if len(find) > 0:
-                if len(find) > 1:
-                    self._logger.debug(
-                        u"FetchONE resulted in many more rows than one, consider putting a LIMIT 1 in the sql statement %s, %s", sql, len(find))
-                find = find[0]
-            else:
-                return
-        if len(find) > 1:
-            return find
-        else:
-            return find[0]
+            return
+        return find if len(find) > 1 else find[0]
 
     @blocking_call_on_reactor_thread
     def fetchall(self, sql, args=None):
         res = self.execute_read(sql, args)
-        if res is not None:
-            find = list(res)
-            return find
-        else:
-            return []  # should it return None?
+        return list(res) if res is not None else []
 
     def getOne(self, table_name, value_name, where=None, conj=u"AND", **kw):
         """ value_name could be a string, a tuple of strings, or '*'
         """
-        if isinstance(value_name, tuple):
-            value_names = u",".join(value_name)
-        elif isinstance(value_name, list):
+        if isinstance(value_name, (tuple, list)):
             value_names = u",".join(value_name)
         else:
             value_names = value_name
 
-        if isinstance(table_name, tuple):
-            table_names = u",".join(table_name)
-        elif isinstance(table_name, list):
+        if isinstance(table_name, (tuple, list)):
             table_names = u",".join(table_name)
         else:
             table_names = table_name
 
-        sql = u'SELECT %s FROM %s' % (value_names, table_names)
+        sql = f'SELECT {value_names} FROM {table_names}'
 
         if where or kw:
             sql += u' WHERE '
         if where:
             sql += where
             if kw:
-                sql += u' %s ' % conj
+                sql += f' {conj} '
         if kw:
             arg = []
             for k, v in kw.iteritems():
@@ -428,7 +408,7 @@ class SQLiteCacheDB(TaskManager):
                 else:
                     operator = "="
                     arg.append(v)
-                sql += u' %s %s ? ' % (k, operator)
+                sql += f' {k} {operator} ? '
                 sql += conj
             sql = sql[:-len(conj)]
         else:
@@ -443,28 +423,24 @@ class SQLiteCacheDB(TaskManager):
             order by is represented as order_by
             group by is represented as group_by
         """
-        if isinstance(value_name, tuple):
-            value_names = u",".join(value_name)
-        elif isinstance(value_name, list):
+        if isinstance(value_name, (tuple, list)):
             value_names = u",".join(value_name)
         else:
             value_names = value_name
 
-        if isinstance(table_name, tuple):
-            table_names = u",".join(table_name)
-        elif isinstance(table_name, list):
+        if isinstance(table_name, (tuple, list)):
             table_names = u",".join(table_name)
         else:
             table_names = table_name
 
-        sql = u'SELECT %s FROM %s' % (value_names, table_names)
+        sql = f'SELECT {value_names} FROM {table_names}'
 
         if where or kw:
             sql += u' WHERE '
         if where:
             sql += where
             if kw:
-                sql += u' %s ' % conj
+                sql += f' {conj} '
         if kw:
             arg = []
             for k, v in kw.iteritems():
@@ -475,19 +451,19 @@ class SQLiteCacheDB(TaskManager):
                     operator = u"="
                     arg.append(v)
 
-                sql += u' %s %s ?' % (k, operator)
+                sql += f' {k} {operator} ?'
                 sql += conj
             sql = sql[:-len(conj)]
         else:
             arg = None
 
         if group_by is not None:
-            sql += u' GROUP BY ' + group_by
+            sql += f' GROUP BY {group_by}'
         if having is not None:
-            sql += u' HAVING ' + having
+            sql += f' HAVING {having}'
         if order_by is not None:
             # you should add desc after order_by to reversely sort, i.e, 'last_seen desc' as order_by
-            sql += u' ORDER BY ' + order_by
+            sql += f' ORDER BY {order_by}'
         if limit is not None:
             sql += u' LIMIT %d' % limit
         if offset is not None:

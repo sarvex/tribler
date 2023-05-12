@@ -398,7 +398,7 @@ class Session(SessionConfigInterface):
         elif subject == NTFY_CHANNELCAST:
             return self.lm.channelcast_db
         else:
-            raise ValueError(u"Cannot open DB subject: %s" % subject)
+            raise ValueError(f"Cannot open DB subject: {subject}")
 
     def close_dbhandler(self, dbhandler):
         """ Closes the given database connection """

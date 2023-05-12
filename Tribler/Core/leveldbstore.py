@@ -103,8 +103,7 @@ class LevelDbStore(MutableMapping, TaskManager):
         self._db.Delete(key)
 
     def __iter__(self):
-        for k in self._pending_torrents.iterkeys():
-            yield k
+        yield from self._pending_torrents.iterkeys()
         for k, _ in self._db.RangeIter():
             yield k
 

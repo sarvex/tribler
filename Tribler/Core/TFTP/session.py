@@ -44,9 +44,8 @@ class Session(object):
 
     def __str__(self):
         type_str = "C" if self.is_client else "S"
-        return "TFTP[%s %s %s:%s][%s]" % (self.session_id, type_str, self.address[0], self.address[1],
-                                          self.file_name.encode('utf8'))
+        return f"TFTP[{self.session_id} {type_str} {self.address[0]}:{self.address[1]}][{self.file_name.encode('utf8')}]"
 
     def __unicode__(self):
         type_str = u"C" if self.is_client else u"S"
-        return u"TFTP[%s %s %s:%s][%s]" % (self.session_id, type_str, self.address[0], self.address[1], self.file_name)
+        return f"TFTP[{self.session_id} {type_str} {self.address[0]}:{self.address[1]}][{self.file_name}]"

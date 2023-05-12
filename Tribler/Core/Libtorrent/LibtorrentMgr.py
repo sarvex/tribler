@@ -83,11 +83,8 @@ class LibtorrentMgr(TaskManager):
 
         self.get_session().stop_upnp()
 
-        # Save libtorrent state
-        ltstate_file = open(os.path.join(self.trsession.get_state_dir(), LTSTATE_FILENAME), 'w')
-        ltstate_file.write(lt.bencode(self.get_session().save_state()))
-        ltstate_file.close()
-
+        with open(os.path.join(self.trsession.get_state_dir(), LTSTATE_FILENAME), 'w') as ltstate_file:
+            ltstate_file.write(lt.bencode(self.get_session().save_state()))
         for ltsession in self.ltsessions.itervalues():
             del ltsession
         self.ltsessions = None
@@ -294,7 +291,10 @@ class LibtorrentMgr(TaskManager):
         # add_port_mapping method exposed in the Python bindings
         if hasattr(self.get_session(), 'add_port_mapping'):
             protocol_name = protocol.lower()
-            assert protocol_name in (u'udp', u'tcp'), "protocol is neither UDP nor TCP: %s" % repr(protocol)
+            assert protocol_name in (
+                u'udp',
+                u'tcp',
+            ), f"protocol is neither UDP nor TCP: {repr(protocol)}"
 
             from libtorrent import protocol_type
             protocol_type_obj = protocol_type.udp if protocol_name == 'udp' else protocol_type.tcp
@@ -307,8 +307,7 @@ class LibtorrentMgr(TaskManager):
 
     def process_alert(self, alert):
         alert_type = str(type(alert)).split("'")[1].split(".")[-1]
-        handle = getattr(alert, 'handle', None)
-        if handle:
+        if handle := getattr(alert, 'handle', None):
             if handle.is_valid():
                 infohash = str(handle.info_hash())
                 if infohash in self.torrents:
@@ -338,8 +337,7 @@ class LibtorrentMgr(TaskManager):
         with self.metainfo_lock:
             self._logger.debug('get_metainfo %s %s %s', infohash_or_magnet, callback, timeout)
 
-            cache_result = self._get_cached_metainfo(infohash)
-            if cache_result:
+            if cache_result := self._get_cached_metainfo(infohash):
                 self.trsession.lm.threadpool.call_in_thread(0, callback, deepcopy(cache_result))
 
             elif infohash not in self.metainfo_requests:
@@ -515,8 +513,7 @@ class LibtorrentMgr(TaskManager):
 
     def start_download_from_url(self, url):
         try:
-            tdef = TorrentDef.load_from_url(url)
-            if tdef:
+            if tdef := TorrentDef.load_from_url(url):
                 return self.start_download(tdef=tdef)
         except:
             return None
@@ -535,39 +532,40 @@ class LibtorrentMgr(TaskManager):
                            torrentfilename, destdir, tdef)
 
         if infohash is not None:
-            assert isinstance(infohash, str), "infohash type: %s" % type(infohash)
-            assert len(infohash) == 20, "infohash length is not 20: %s, %s" % (len(infohash), infohash)
+            assert isinstance(infohash, str), f"infohash type: {type(infohash)}"
+            assert (
+                len(infohash) == 20
+            ), f"infohash length is not 20: {len(infohash)}, {infohash}"
 
         # the priority of the parameters is: (1) tdef, (2) infohash, (3) torrent_file.
         # so if we have tdef, infohash and torrent_file will be ignored, and so on.
-        if tdef is None:
-            if infohash is not None:
-                # try to get the torrent from torrent_store if the infohash is provided
-                torrent_data = self.trsession.get_collected_torrent(infohash)
-                if torrent_data is not None:
-                    # use this torrent data for downloading
-                    tdef = TorrentDef.load_from_memory(torrent_data)
-
-            if tdef is None:
-                assert torrentfilename is not None, "torrent file must be provided if tdef and infohash are not given"
-                # try to get the torrent from the given torrent file
-                torrent_data = fix_torrent(torrentfilename)
-                if torrent_data is None:
-                    raise TorrentFileException()
-
+        if tdef is None and infohash is not None:
+            # try to get the torrent from torrent_store if the infohash is provided
+            torrent_data = self.trsession.get_collected_torrent(infohash)
+            if torrent_data is not None:
+                # use this torrent data for downloading
                 tdef = TorrentDef.load_from_memory(torrent_data)
+
+        if tdef is None:
+            assert torrentfilename is not None, "torrent file must be provided if tdef and infohash are not given"
+            # try to get the torrent from the given torrent file
+            torrent_data = fix_torrent(torrentfilename)
+            if torrent_data is None:
+                raise TorrentFileException()
+
+            tdef = TorrentDef.load_from_memory(torrent_data)
 
         assert tdef is not None, "tdef MUST not be None after loading torrent"
 
-        d = self.trsession.get_download(tdef.get_infohash())
-        if d:
-            new_trackers = list(set(tdef.get_trackers_as_single_tuple()) - set(
-                d.get_def().get_trackers_as_single_tuple()))
-            if not new_trackers:
+        if d := self.trsession.get_download(tdef.get_infohash()):
+            if new_trackers := list(
+                set(tdef.get_trackers_as_single_tuple())
+                - set(d.get_def().get_trackers_as_single_tuple())
+            ):
+                self.trsession.update_trackers(tdef.get_infohash(), new_trackers)
+            else:
                 raise DuplicateDownloadException()
 
-            else:
-                self.trsession.update_trackers(tdef.get_infohash(), new_trackers)
             return
 
         defaultDLConfig = DefaultDownloadStartupConfig.getInstance()
@@ -582,9 +580,7 @@ class LibtorrentMgr(TaskManager):
             dscfg.set_dest_dir(destdir)
 
         self._logger.info('start_download: Starting in VOD mode')
-        result = self.trsession.start_download_from_tdef(tdef, dscfg)
-
-        return result
+        return self.trsession.start_download_from_tdef(tdef, dscfg)
 
 def encode_atp(atp):
     for k, v in atp.iteritems():

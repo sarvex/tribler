@@ -20,7 +20,7 @@ from .exception import InvalidPacketException, FileNotFound
 MAX_INT16 = 2 ** 16 - 1
 
 SEPARATOR = ":"
-METADATA_PREFIX = "metadata" + SEPARATOR
+METADATA_PREFIX = f"metadata{SEPARATOR}"
 
 DEFAULT_RETIES = 5
 
@@ -104,25 +104,25 @@ class TftpHandler(TaskManager):
         target_port = port
         self_ip, self_port = self.session.lm.dispersy.wan_address
         self_ip = unpack('!L', inet_aton(self_ip))[0]
-        if target_ip > self_ip:
+        if (
+            target_ip <= self_ip
+            and target_ip >= self_ip
+            and target_port > self_port
+            or target_ip > self_ip
+        ):
             generate_session = lambda: randint(0, MAX_INT16) & 0xfff0
-        elif target_ip < self_ip:
+        elif target_ip >= self_ip and target_port < self_port or target_ip < self_ip:
             generate_session = lambda: randint(0, MAX_INT16) | 1
         else:
-            if target_port > self_port:
-                generate_session = lambda: randint(0, MAX_INT16) & 0xfff0
-            elif target_port < self_port:
-                generate_session = lambda: randint(0, MAX_INT16) | 1
-            else:
-                self._logger.critical(u"communicating to myself %s:%s", ip, port)
-                generate_session = lambda: randint(0, MAX_INT16)
+            self._logger.critical(u"communicating to myself %s:%s", ip, port)
+            generate_session = lambda: randint(0, MAX_INT16)
 
         session_id = generate_session()
         while (ip, port, session_id) in self._session_dict:
             session_id = generate_session()
 
         # create session
-        assert session_id is not None, u"session_id = %s" % session_id
+        assert session_id is not None, f"session_id = {session_id}"
         self._logger.debug(u"start downloading %s from %s:%s, sid = %s", file_name, ip, port, session_id)
         session = Session(True, session_id, (ip, port), OPCODE_RRQ, file_name, '', None, None,
                           extra_info=extra_info, block_size=self._block_size, timeout=self._timeout,
@@ -331,7 +331,7 @@ class TftpHandler(TaskManager):
         file_data = self.session.lm.metadata_store.get(thumb_hash.encode('utf8'))
         # check if file exists
         if not file_data:
-            msg = u"Metadata not in store: %s" % thumb_hash
+            msg = f"Metadata not in store: {thumb_hash}"
             raise FileNotFound(msg)
 
         return file_data, len(file_data)
@@ -345,7 +345,7 @@ class TftpHandler(TaskManager):
         file_data = self.session.lm.torrent_store.get(infohash)
         # check if file exists
         if not file_data:
-            msg = u"Torrent not in store: %s" % infohash
+            msg = f"Torrent not in store: {infohash}"
             raise FileNotFound(msg)
 
         return file_data, len(file_data)
@@ -392,15 +392,13 @@ class TftpHandler(TaskManager):
             if session.last_received_packet is None:
                 # check options
                 if session.block_size != packet['options']['blksize']:
-                    msg = "%s OACK blksize mismatch: %s != %s (expected)" %\
-                          (session, session.block_size, packet['options']['blksize'])
+                    msg = f"{session} OACK blksize mismatch: {session.block_size} != {packet['options']['blksize']} (expected)"
                     self._logger.error(msg)
                     self._handle_error(session, 0, error_msg=msg)  # Error: blksize mismatch
                     return
 
                 if session.timeout != packet['options']['timeout']:
-                    msg = "%s OACK timeout mismatch: %s != %s (expected)" %\
-                          (session, session.timeout, packet['options']['timeout'])
+                    msg = f"{session} OACK timeout mismatch: {session.timeout} != {packet['options']['timeout']} (expected)"
                     self._logger.error(msg)
                     self._handle_error(session, 0, error_msg=msg)  # Error: timeout mismatch
                     return
@@ -435,8 +433,7 @@ class TftpHandler(TaskManager):
             return
 
         if packet['block_number'] != session.block_number:
-            msg = "%s Got ACK with block# %s while expecting %s" %\
-                  (session, packet['block_number'], session.block_number)
+            msg = f"{session} Got ACK with block# {packet['block_number']} while expecting {session.block_number}"
             self._logger.error(msg)
             self._handle_error(session, 0, error_msg=msg)  # Error: block_number mismatch
             return
@@ -484,8 +481,7 @@ class TftpHandler(TaskManager):
             return
 
         if packet['block_number'] != session.block_number:
-            msg = "%s got ACK with block# %s while expecting %s" %\
-                  (session, packet['block_number'], session.block_number)
+            msg = f"{session} got ACK with block# {packet['block_number']} while expecting {session.block_number}"
             self._logger.error(msg)
             self._handle_error(session, 0, error_msg=msg)  # Error: block_number mismatch
             return
@@ -508,8 +504,16 @@ class TftpHandler(TaskManager):
 
     def _send_packet(self, session, packet):
         packet_buff = encode_packet(packet)
-        extra_msg = u" block_number = %s" % packet['block_number'] if packet.get('block_number') is not None else ""
-        extra_msg += u" block_size = %s" % len(packet['data']) if packet.get('data') is not None else ""
+        extra_msg = (
+            f" block_number = {packet['block_number']}"
+            if packet.get('block_number') is not None
+            else ""
+        )
+        extra_msg += (
+            f" block_size = {len(packet['data'])}"
+            if packet.get('data') is not None
+            else ""
+        )
 
         self._logger.debug(u"SEND OP[%s] -> %s:%s %s",
                            packet['opcode'], session.address[0], session.address[1], extra_msg)
@@ -520,7 +524,9 @@ class TftpHandler(TaskManager):
         session.last_sent_packet = packet
 
     def _send_request_packet(self, session):
-        assert session.request == OPCODE_RRQ, u"Invalid request_opcode %s" % repr(session.request)
+        assert (
+            session.request == OPCODE_RRQ
+        ), f"Invalid request_opcode {repr(session.request)}"
 
         packet = {'opcode': session.request,
                   'session_id': session.session_id,

@@ -71,8 +71,9 @@ def set_environment_variable(name, value):
     """Unicode compatible environment variable setter
     """
     if ctypes.windll.kernel32.SetEnvironmentVariableW(name, value) == 0:
-        raise RuntimeError("Failed to set env. variable '%s' to '%s" %
-                           (repr(name), repr(value)))
+        raise RuntimeError(
+            f"Failed to set env. variable '{repr(name)}' to '{repr(value)}"
+        )
 
 LOG_PATH = os.path.join(get_environment_variable(u"APPDATA"), u"Tribler.exe.log")
 OLD_LOG_PATH = os.path.join(get_environment_variable(u"APPDATA"), u"Tribler.exe.old.log")

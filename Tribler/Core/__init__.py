@@ -32,7 +32,7 @@ def warnIfDispersyThread(func):
         if isInIOThread():
             import inspect
             caller = inspect.stack()[1]
-            callerstr = "%s %s:%s" % (caller[3], caller[1], caller[2])
+            callerstr = f"{caller[3]} {caller[1]}:{caller[2]}"
 
             from time import time
             logger.error("%d CANNOT BE ON DISPERSYTHREAD %s %s:%s called by %s", long(time()),

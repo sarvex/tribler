@@ -88,9 +88,9 @@ class GUIUtility(object):
         self.utility.session.add_observer(self.destroy_startup_splash, NTFY_STARTUP_TICK, [NTFY_DELETE])
         self.utility.session.add_observer(self.destroy_close_splash, NTFY_CLOSE_TICK, [NTFY_DELETE])
 
-    def getInstance(*args, **kw):
+    def getInstance(self, **kw):
         if GUIUtility.__single is None:
-            GUIUtility(*args, **kw)
+            GUIUtility(*self, **kw)
         return GUIUtility.__single
     getInstance = staticmethod(getInstance)
 
@@ -110,20 +110,19 @@ class GUIUtility(object):
     delInstance = staticmethod(delInstance)
 
     def register(self):
-        if not self.registered:
-            self.registered = True
-
-            self.torrentsearch_manager = TorrentManager(self)
-            self.channelsearch_manager = ChannelManager.getInstance()
-            self.library_manager = LibraryManager(self)
-
-            self.torrentsearch_manager.connect(self.utility.session, self.library_manager, self.channelsearch_manager)
-            self.channelsearch_manager.connect(self.utility.session, self.library_manager, self.torrentsearch_manager)
-            self.library_manager.connect(self.utility.session, self.torrentsearch_manager, self.channelsearch_manager)
-
-            self.videoplayer = self.utility.session.lm.videoplayer
-        else:
+        if self.registered:
             raise RuntimeError('GuiUtility is already registered')
+        self.registered = True
+
+        self.torrentsearch_manager = TorrentManager(self)
+        self.channelsearch_manager = ChannelManager.getInstance()
+        self.library_manager = LibraryManager(self)
+
+        self.torrentsearch_manager.connect(self.utility.session, self.library_manager, self.channelsearch_manager)
+        self.channelsearch_manager.connect(self.utility.session, self.library_manager, self.torrentsearch_manager)
+        self.library_manager.connect(self.utility.session, self.torrentsearch_manager, self.channelsearch_manager)
+
+        self.videoplayer = self.utility.session.lm.videoplayer
 
     def ShowPlayer(self):
         # TODO(emilon): Hack to work around video player tab not been properly
@@ -164,8 +163,7 @@ class GUIUtility(object):
             if page == 'search_results':
                 # Show list
                 self.SetTopSplitterWindow(self.frame.searchlist)
-                items = self.frame.searchlist.GetExpandedItems()
-                if items:
+                if items := self.frame.searchlist.GetExpandedItems():
                     self.frame.searchlist.Select(items[0][0], force=True)
                 else:
                     self.frame.searchlist.ResetBottomWindow()
@@ -175,8 +173,7 @@ class GUIUtility(object):
 
             if page == 'channels':
                 self.SetTopSplitterWindow(self.frame.channellist)
-                items = self.frame.channellist.GetExpandedItems()
-                if items:
+                if items := self.frame.channellist.GetExpandedItems():
                     self.frame.channellist.Select(items[0][0], force=True)
                 else:
                     self.frame.channellist.ResetBottomWindow()
@@ -200,8 +197,7 @@ class GUIUtility(object):
 
             if page == 'selectedchannel':
                 self.SetTopSplitterWindow(self.frame.selectedchannellist)
-                items = self.frame.selectedchannellist.GetExpandedItems()
-                if items:
+                if items := self.frame.selectedchannellist.GetExpandedItems():
                     self.frame.selectedchannellist.Select(items[0][0], force=True)
                 else:
                     self.frame.selectedchannellist.ResetBottomWindow()
@@ -220,8 +216,7 @@ class GUIUtility(object):
 
             if page == 'playlist':
                 self.SetTopSplitterWindow(self.frame.playlist)
-                items = self.frame.playlist.GetExpandedItems()
-                if items:
+                if items := self.frame.playlist.GetExpandedItems():
                     self.frame.playlist.Select(items[0][0])
                 else:
                     self.frame.playlist.ResetBottomWindow()
@@ -239,12 +234,10 @@ class GUIUtility(object):
                 # Open infohash
                 if args:
                     self.frame.librarylist.GetManager().refresh_or_expand(args[0])
+                elif items := self.frame.librarylist.GetExpandedItems():
+                    self.frame.librarylist.Select(items[0][0], force=True)
                 else:
-                    items = self.frame.librarylist.GetExpandedItems()
-                    if items:
-                        self.frame.librarylist.Select(items[0][0], force=True)
-                    else:
-                        self.frame.librarylist.ResetBottomWindow()
+                    self.frame.librarylist.ResetBottomWindow()
 
             elif self.guiPage == 'my_files':
                 # Hide list
@@ -266,10 +259,11 @@ class GUIUtility(object):
             elif self.guiPage == 'networkgraph':
                 self.frame.networkgraph.Show(False)
 
-            if self.frame.videoparentpanel:
-                if page == 'videoplayer':
+            if page == 'videoplayer':
+                if self.frame.videoparentpanel:
                     self.frame.videoparentpanel.Show(True)
-                elif self.guiPage == 'videoplayer':
+            elif self.guiPage == 'videoplayer':
+                if self.frame.videoparentpanel:
                     self.frame.videoparentpanel.Show(False)
 
             self.guiPage = page
@@ -402,12 +396,12 @@ class GUIUtility(object):
             if column['name'] in hide_columns:
                 column['show'] = hide_columns[column['name']]
             else:
-                column['show'] = not (index in hide_defaults)
+                column['show'] = index not in hide_defaults
 
         # Load column width info
         column_sizes = self.ReadGuiSetting("column_sizes", default={})
         column_sizes = column_sizes.get(itemtype.__name__, {})
-        for index, column in enumerate(columns):
+        for column in columns:
             if column['name'] in column_sizes:
                 column['width'] = column_sizes[column['name']]
 
@@ -429,11 +423,10 @@ class GUIUtility(object):
     def GoBack(self, scrollTo=None, topage=None):
         if topage:
             self.oldpage.pop()
+        elif len(self.oldpage) > 0:
+            topage = self.oldpage.pop()
         else:
-            if len(self.oldpage) > 0:
-                topage = self.oldpage.pop()
-            else:
-                return
+            return
 
         if topage == 'search_results':
             self.frame.actlist.selectTab('results')
@@ -471,10 +464,12 @@ class GUIUtility(object):
             keywords = split_into_keywords(input)
             keywords = [keyword for keyword in keywords if len(keyword) > 1]
 
-            if len(keywords) == 0:
-                self.Notify('Please enter a search term',
-                            "Your search term '%s' was either to small or to general." % input,
-                            icon=wx.ART_INFORMATION)
+            if not keywords:
+                self.Notify(
+                    'Please enter a search term',
+                    f"Your search term '{input}' was either to small or to general.",
+                    icon=wx.ART_INFORMATION,
+                )
 
             else:
                 self.frame.top_bg.StartSearch()
@@ -566,9 +561,7 @@ class GUIUtility(object):
 
         def subscribe_latestupdate_sort(a, b):
             val = cmp(a.modified, b.modified)
-            if val == 0:
-                return cmp(a.name, b.name)
-            return val
+            return cmp(a.name, b.name) if val == 0 else val
 
         data = data_channel.values()
         data.sort(subscribe_latestupdate_sort, reverse=True)
@@ -619,15 +612,14 @@ class GUIUtility(object):
             self.frame.tbicon.Notify(title, msg, icon)
         else:
             if isinstance(icon, basestring):
-                icon = wx.ArtProvider.GetBitmap(icon, wx.ART_FRAME_ICON) or \
-                    GuiImageManager.getInstance().getImage(u"notify_%s.png" % icon)
+                icon = wx.ArtProvider.GetBitmap(
+                    icon, wx.ART_FRAME_ICON
+                ) or GuiImageManager.getInstance().getImage(f"notify_{icon}.png")
             self.frame.actlist.Notify(msg or title, icon)
 
     def ShouldGuiUpdate(self):
         # Avoid WxPyDeadObject exception
-        if self.frame and self.frame.ready:
-            return self.frame.GUIupdate
-        return True
+        return self.frame.GUIupdate if self.frame and self.frame.ready else True
 
     def addList(self, l):
         if l not in self.lists:
@@ -662,131 +654,153 @@ class GUIUtility(object):
 
     @forceWxThread
     def MarkAsFavorite(self, event, channel):
-        if channel:
-            if event:
-                button = event.GetEventObject()
-                button.Enable(False)
-                if hasattr(button, 'selected'):
-                    button.selected = False
+        if not channel:
+            return
+        if event:
+            button = event.GetEventObject()
+            button.Enable(False)
+            if hasattr(button, 'selected'):
+                button.selected = False
 
-            dlgname = 'MFdialog'
-            if not self.ReadGuiSetting('show_%s' % dlgname, default=True):
-                response = wx.ID_OK
-            else:
-                from Tribler.Main.Dialogs.ConfirmationDialog import ConfirmationDialog
-                dlg = ConfirmationDialog(
-                    None, dlgname, "You are about to add \'%s\' to your list of favourite channels." % channel.name,
-                    "If you mark this channel as your favourite, you will be able to access its full content.")
-                response = dlg.ShowModal()
+        dlgname = 'MFdialog'
+        if not self.ReadGuiSetting(f'show_{dlgname}', default=True):
+            response = wx.ID_OK
+        else:
+            from Tribler.Main.Dialogs.ConfirmationDialog import ConfirmationDialog
+            dlg = ConfirmationDialog(
+                None, dlgname, "You are about to add \'%s\' to your list of favourite channels." % channel.name,
+                "If you mark this channel as your favourite, you will be able to access its full content.")
+            response = dlg.ShowModal()
 
-            if response == wx.ID_OK:
-                @forceDBThread
-                def add_vote():
-                    self.channelsearch_manager.favorite(channel.id)
-                    wx.CallAfter(self.Notify, "Channel marked as favourite", "Marked channel '%s' as favourite" %
-                                 channel.name, icon='favourite')
-                    if event:
-                        button.Enable(True)
-                    self.RefreshChannel(channel.id)
-                add_vote()
-            elif event:
-                button.Enable(True)
+        if response == wx.ID_OK:
+            @forceDBThread
+            def add_vote():
+                self.channelsearch_manager.favorite(channel.id)
+                wx.CallAfter(
+                    self.Notify,
+                    "Channel marked as favourite",
+                    f"Marked channel '{channel.name}' as favourite",
+                    icon='favourite',
+                )
+                if event:
+                    button.Enable(True)
+                self.RefreshChannel(channel.id)
+
+            add_vote()
+        elif event:
+            button.Enable(True)
 
     @forceWxThread
     def RemoveFavorite(self, event, channel):
-        if channel:
-            if event:
-                button = event.GetEventObject()
-                button.Enable(False)
-                if hasattr(button, 'selected'):
-                    button.selected = False
+        if not channel:
+            return
+        if event:
+            button = event.GetEventObject()
+            button.Enable(False)
+            if hasattr(button, 'selected'):
+                button.selected = False
 
-            dlgname = 'RFdialog'
-            if not self.ReadGuiSetting('show_%s' % dlgname, default=True):
-                response = wx.ID_OK
-            else:
-                from Tribler.Main.Dialogs.ConfirmationDialog import ConfirmationDialog
-                dlg = ConfirmationDialog(
-                    None, dlgname,
-                    "You are about to remove \'%s\' from your list of favourite channels." % channel.name,
-                    "If you remove this channel from your favourites, "
-                    "you will no longer be able to access its full content.")
-                response = dlg.ShowModal()
+        dlgname = 'RFdialog'
+        if not self.ReadGuiSetting(f'show_{dlgname}', default=True):
+            response = wx.ID_OK
+        else:
+            from Tribler.Main.Dialogs.ConfirmationDialog import ConfirmationDialog
+            dlg = ConfirmationDialog(
+                None, dlgname,
+                "You are about to remove \'%s\' from your list of favourite channels." % channel.name,
+                "If you remove this channel from your favourites, "
+                "you will no longer be able to access its full content.")
+            response = dlg.ShowModal()
 
-            if response == wx.ID_OK:
-                @forceDBThread
-                def remove_vote():
-                    self.channelsearch_manager.remove_vote(channel.id)
-                    wx.CallAfter(self.Notify, "Channel removed from favourites",
-                                 "Removed channel '%s' from your favourites" % channel.name,
-                                 icon='favourite')
-                    if event:
-                        button.Enable(True)
-                    self.RefreshChannel(channel.id)
-                remove_vote()
-            elif event:
-                button.Enable(True)
+        if response == wx.ID_OK:
+            @forceDBThread
+            def remove_vote():
+                self.channelsearch_manager.remove_vote(channel.id)
+                wx.CallAfter(
+                    self.Notify,
+                    "Channel removed from favourites",
+                    f"Removed channel '{channel.name}' from your favourites",
+                    icon='favourite',
+                )
+                if event:
+                    button.Enable(True)
+                self.RefreshChannel(channel.id)
+
+            remove_vote()
+        elif event:
+            button.Enable(True)
 
     @forceWxThread
     def MarkAsSpam(self, event, channel):
-        if channel:
-            if event:
-                button = event.GetEventObject()
-                button.Enable(False)
-                if hasattr(button, 'selected'):
-                    button.selected = False
+        if not channel:
+            return
+        if event:
+            button = event.GetEventObject()
+            button.Enable(False)
+            if hasattr(button, 'selected'):
+                button.selected = False
 
-            dlgname = 'MSdialog'
-            if not self.ReadGuiSetting('show_%s' % dlgname, default=True):
-                response = wx.ID_OK
-            else:
-                from Tribler.Main.Dialogs.ConfirmationDialog import ConfirmationDialog
-                dlg = ConfirmationDialog(None, dlgname,
-                                         "You are about to report channel \'%s\' as spam." % channel.name, "")
-                response = dlg.ShowModal()
+        dlgname = 'MSdialog'
+        if not self.ReadGuiSetting(f'show_{dlgname}', default=True):
+            response = wx.ID_OK
+        else:
+            from Tribler.Main.Dialogs.ConfirmationDialog import ConfirmationDialog
+            dlg = ConfirmationDialog(None, dlgname,
+                                     "You are about to report channel \'%s\' as spam." % channel.name, "")
+            response = dlg.ShowModal()
 
-            if response == wx.ID_OK:
-                @forceDBThread
-                def remove_vote():
-                    self.channelsearch_manager.spam(channel.id)
-                    wx.CallAfter(self.Notify, "Channel marked as spam", "Channel '%s' marked as spam" % channel.name)
-                    if event:
-                        button.Enable(True)
-                    self.RefreshChannel(channel.id)
-                remove_vote()
-            elif event:
-                button.Enable(True)
+        if response == wx.ID_OK:
+            @forceDBThread
+            def remove_vote():
+                self.channelsearch_manager.spam(channel.id)
+                wx.CallAfter(
+                    self.Notify,
+                    "Channel marked as spam",
+                    f"Channel '{channel.name}' marked as spam",
+                )
+                if event:
+                    button.Enable(True)
+                self.RefreshChannel(channel.id)
+
+            remove_vote()
+        elif event:
+            button.Enable(True)
 
     @forceWxThread
     def RemoveSpam(self, event, channel):
-        if channel:
-            if event:
-                button = event.GetEventObject()
-                button.Enable(False)
-                if hasattr(button, 'selected'):
-                    button.selected = False
+        if not channel:
+            return
+        if event:
+            button = event.GetEventObject()
+            button.Enable(False)
+            if hasattr(button, 'selected'):
+                button.selected = False
 
-            dlgname = 'RSdialog'
-            if not self.ReadGuiSetting('show_%s' % dlgname, default=True):
-                response = wx.ID_OK
-            else:
-                from Tribler.Main.Dialogs.ConfirmationDialog import ConfirmationDialog
-                dlg = ConfirmationDialog(None, dlgname,
-                                         "You are about unmark channel \'%s\' as spam." % channel.name, "")
-                response = dlg.ShowModal()
+        dlgname = 'RSdialog'
+        if not self.ReadGuiSetting(f'show_{dlgname}', default=True):
+            response = wx.ID_OK
+        else:
+            from Tribler.Main.Dialogs.ConfirmationDialog import ConfirmationDialog
+            dlg = ConfirmationDialog(None, dlgname,
+                                     "You are about unmark channel \'%s\' as spam." % channel.name, "")
+            response = dlg.ShowModal()
 
-            if response == wx.ID_OK:
-                @forceDBThread
-                def remove_vote():
-                    self.channelsearch_manager.remove_vote(channel.id)
-                    wx.CallAfter(self.Notify,
-                                 "Channel unmarked as spam", "Channel '%s' unmarked as spam" % channel.name)
-                    if event:
-                        button.Enable(True)
-                    self.RefreshChannel(channel.id)
-                remove_vote()
-            elif event:
-                button.Enable(True)
+        if response == wx.ID_OK:
+            @forceDBThread
+            def remove_vote():
+                self.channelsearch_manager.remove_vote(channel.id)
+                wx.CallAfter(
+                    self.Notify,
+                    "Channel unmarked as spam",
+                    f"Channel '{channel.name}' unmarked as spam",
+                )
+                if event:
+                    button.Enable(True)
+                self.RefreshChannel(channel.id)
+
+            remove_vote()
+        elif event:
+            button.Enable(True)
 
     def RefreshChannel(self, channelid):
         if self.guiPage in ['search_results', 'selectedchannel', 'channels']:

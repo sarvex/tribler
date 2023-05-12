@@ -53,11 +53,12 @@ class DownloadConfigInterface(object):
         if write and self.dlconfig.filename:
             self.dlconfig.write_file()
 
-        if dlconfig:
-            # TODO(emilon): I guess this can be removed?
-            # modify/fix incorrectly saved dlconfigs
-            if dlconfig.has_option('downloadconfig', 'saveas') and isinstance(dlconfig.get('downloadconfig', 'saveas'), tuple):
-                dlconfig.set('downloadconfig', 'saveas', dlconfig.get('saveas')[-1])
+        if (
+            dlconfig
+            and dlconfig.has_option('downloadconfig', 'saveas')
+            and isinstance(dlconfig.get('downloadconfig', 'saveas'), tuple)
+        ):
+            dlconfig.set('downloadconfig', 'saveas', dlconfig.get('saveas')[-1])
 
     def copy(self):
         return DownloadConfigInterface(self.dlconfig.copy())
@@ -180,7 +181,7 @@ class DownloadStartupConfig(DownloadConfigInterface):
     # Class method
     #
 
-    def load(filename):
+    def load(self):
         """
         Load a saved DownloadStartupConfig from disk.
 
@@ -190,7 +191,7 @@ class DownloadStartupConfig(DownloadConfigInterface):
         # Class method, no locking required
         dlconfig = CallbackConfigParser()
         try:
-            dlconfig.read_file(filename)
+            dlconfig.read_file(self)
         except:
             raise IOError, "Failed to open download config file"
 

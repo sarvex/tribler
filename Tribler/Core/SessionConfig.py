@@ -110,7 +110,7 @@ class SessionConfigInterface(object):
                 this particular setting.
         """
         settings_port = self.sessconfig.get(section, option)
-        path = section + '~' + option
+        path = f'{section}~{option}'
         in_selected_ports = path in self.selected_ports
 
         if in_selected_ports or settings_port == -1:

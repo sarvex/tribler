@@ -105,12 +105,11 @@ if sys.platform == "win32":
             # [E1101] Module 'sys' has no 'getwindowsversion' member
             # pylint: disable-msg=E1101
             winversion = sys.getwindowsversion()
-            # pylint: enable-msg=E1101
-            if winversion[0] == 6:
-                appdir = os.path.join(homedir, u"AppData", u"Roaming")
-            else:
-                appdir = os.path.join(homedir, u"Application Data")
-            return appdir
+            return (
+                os.path.join(homedir, u"AppData", u"Roaming")
+                if winversion[0] == 6
+                else os.path.join(homedir, u"Application Data")
+            )
 
         def get_picture_dir():
             return get_home_dir()
@@ -133,10 +132,7 @@ else:
     def get_desktop_dir():
         home = get_home_dir()
         desktop = os.path.join(home, "Desktop")
-        if os.path.exists(desktop):
-            return desktop
-        else:
-            return home
+        return desktop if os.path.exists(desktop) else home
 
 
 def get_free_space(path):
@@ -151,10 +147,7 @@ def get_free_space(path):
         return data.f_bavail * data.f_frsize
 
 
-invalidwinfilenamechars = ''
-for i in range(32):
-    invalidwinfilenamechars += chr(i)
-invalidwinfilenamechars += '"*/:<>?\\|'
+invalidwinfilenamechars = ''.join(chr(i) for i in range(32)) + '"*/:<>?\\|'
 invalidlinuxfilenamechars = '/'
 
 
@@ -237,7 +230,7 @@ def is_android(strict=False):
     """
 
     # This is not an Android device at all
-    if not 'ANDROID_HOST' in os.environ:
+    if 'ANDROID_HOST' not in os.environ:
         return False
 
     # No strict mode: always return true when ANDROID_HOST is defined

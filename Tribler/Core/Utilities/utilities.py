@@ -22,10 +22,12 @@ def validTorrentFile(metainfo):
     if 'info' not in metainfo:
         raise ValueError('metainfo misses key info')
 
-    if 'announce' in metainfo and not isValidURL(metainfo['announce']):
-        # Niels: Some .torrent files have a dht:// url in the announce field.
-        if not metainfo['announce'].startswith('dht:'):
-            raise ValueError('announce URL bad')
+    if (
+        'announce' in metainfo
+        and not isValidURL(metainfo['announce'])
+        and not metainfo['announce'].startswith('dht:')
+    ):
+        raise ValueError('announce URL bad')
 
     # http://www.bittorrent.org/DHT_protocol.html says both announce and nodes
     # are not allowed, but some torrents (Azureus?) apparently violate this.
@@ -36,17 +38,17 @@ def validTorrentFile(metainfo):
     if 'nodes' in metainfo:
         nodes = metainfo['nodes']
         if not isinstance(nodes, ListType):
-            raise ValueError('nodes not list, but ' + repr(type(nodes)))
+            raise ValueError(f'nodes not list, but {repr(type(nodes))}')
         for pair in nodes:
             if not isinstance(pair, ListType) and len(pair) != 2:
-                raise ValueError('node not 2-item list, but ' + repr(type(pair)))
+                raise ValueError(f'node not 2-item list, but {repr(type(pair))}')
             host, port = pair
             if not isinstance(host, StringType):
-                raise ValueError('node host not string, but ' + repr(type(host)))
+                raise ValueError(f'node host not string, but {repr(type(host))}')
             if not isinstance(port, (IntType, LongType)):
-                raise ValueError('node port not int, but ' + repr(type(port)))
+                raise ValueError(f'node port not int, but {repr(type(port))}')
 
-    if not ('announce' in metainfo or 'nodes' in metainfo):
+    if 'announce' not in metainfo and 'nodes' not in metainfo:
         # Niels: 07/06/2012, disabling this check, modifying metainfo to allow for ill-formatted torrents
         metainfo['nodes'] = []
         # raise ValueError('announce and nodes missing')
@@ -56,14 +58,16 @@ def validTorrentFile(metainfo):
     # metadata.  Typically these addresses are recently gathered.
     if "initial peers" in metainfo:
         if not isinstance(metainfo["initial peers"], list):
-            raise ValueError("initial peers not list, but %s" % type(metainfo["initial peers"]))
+            raise ValueError(
+                f'initial peers not list, but {type(metainfo["initial peers"])}'
+            )
         for address in metainfo["initial peers"]:
             if not (isinstance(address, tuple) and len(address) == 2):
-                raise ValueError("address not 2-item tuple, but %s" % type(address))
+                raise ValueError(f"address not 2-item tuple, but {type(address)}")
             if not isinstance(address[0], str):
-                raise ValueError("address host not string, but %s" % type(address[0]))
+                raise ValueError(f"address host not string, but {type(address[0])}")
             if not isinstance(address[1], int):
-                raise ValueError("address port not int, but %s" % type(address[1]))
+                raise ValueError(f"address port not int, but {type(address[1])}")
 
     info = metainfo['info']
     if not isinstance(info, DictType):
@@ -75,13 +79,13 @@ def validTorrentFile(metainfo):
         infokeys = ['name', 'piece length', 'pieces']
     for key in infokeys:
         if key not in info:
-            raise ValueError('info misses key ' + key)
+            raise ValueError(f'info misses key {key}')
     name = info['name']
     if not isinstance(name, StringType):
-        raise ValueError('info name is not string but ' + repr(type(name)))
+        raise ValueError(f'info name is not string but {repr(type(name))}')
     pl = info['piece length']
     if not isinstance(pl, IntType) and not isinstance(pl, LongType):
-        raise ValueError('info piece size is not int, but ' + repr(type(pl)))
+        raise ValueError(f'info piece size is not int, but {repr(type(pl))}')
     if 'root hash' in info:
         rh = info['root hash']
         if not isinstance(rh, StringType) or len(rh) != 20:
@@ -98,12 +102,12 @@ def validTorrentFile(metainfo):
 
         l = info['length']
         if not isinstance(l, IntType) and not isinstance(l, LongType):
-            raise ValueError('info length is not int, but ' + repr(type(l)))
+            raise ValueError(f'info length is not int, but {repr(type(l))}')
     else:
         # multi-file torrent
         files = info['files']
         if not isinstance(files, ListType):
-            raise ValueError('info files not list, but ' + repr(type(files)))
+            raise ValueError(f'info files not list, but {repr(type(files))}')
 
         filekeys = ['path', 'length']
         for file in files:
@@ -113,24 +117,24 @@ def validTorrentFile(metainfo):
 
             p = file['path']
             if not isinstance(p, ListType):
-                raise ValueError('info files path is not list, but ' + repr(type(p)))
+                raise ValueError(f'info files path is not list, but {repr(type(p))}')
             for dir in p:
                 if not isinstance(dir, StringType):
-                    raise ValueError('info files path is not string, but ' + repr(type(dir)))
+                    raise ValueError(f'info files path is not string, but {repr(type(dir))}')
 
             l = file['length']
             if not isinstance(l, IntType) and not isinstance(l, LongType):
-                raise ValueError('info files length is not int, but ' + repr(type(l)))
+                raise ValueError(f'info files length is not int, but {repr(type(l))}')
 
     # common additional fields
     if 'announce-list' in metainfo:
         al = metainfo['announce-list']
         if not isinstance(al, ListType):
-            raise ValueError('announce-list is not list, but ' + repr(type(al)))
+            raise ValueError(f'announce-list is not list, but {repr(type(al))}')
         for tier in al:
             if not isinstance(tier, ListType):
-                raise ValueError('announce-list tier is not list ' + repr(tier))
-        # Jie: this limitation is not necessary
+                raise ValueError(f'announce-list tier is not list {repr(tier)}')
+            # Jie: this limitation is not necessary
 #            for url in tier:
 #                if not isValidURL(url):
 #                    raise ValueError('announce-list url is not valid '+`url`)
@@ -177,9 +181,7 @@ def isValidURL(url):
         url = url.lower().replace('udp', 'http', 1)
     r = urlparse.urlsplit(url)
 
-    if r[0] == '' or r[1] == '':
-        return False
-    return True
+    return r[0] != '' and r[1] != ''
 
 
 def parse_magnetlink(url):
@@ -197,11 +199,7 @@ def parse_magnetlink(url):
         # query part.
         if "?" in path:
             pre, post = path.split("?", 1)
-            if query:
-                query = "&".join((post, query))
-            else:
-                query = post
-
+            query = "&".join((post, query)) if query else post
         for key, value in parse_qsl(query):
             if key == "dn":
                 # convert to unicode
@@ -231,10 +229,8 @@ def fix_torrent(file_path):
     :param file_path: The torrent file path.
     :return: True if the torrent file is now overwritten with valid information, otherwise False.
     """
-    f = open(file_path, 'rb')
-    bdata = f.read()
-    f.close()
-
+    with open(file_path, 'rb') as f:
+        bdata = f.read()
     # Check if correct bdata
     fixed_data = bdecode(bdata)
     if fixed_data is not None:

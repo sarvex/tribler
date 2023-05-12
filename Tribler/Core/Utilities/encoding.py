@@ -7,7 +7,7 @@ def _a_encode_int(value, mapping):
     """
     42 --> ('2', 'i', '42')
     """
-    assert isinstance(value, int), "VALUE has invalid type: %s" % type(value)
+    assert isinstance(value, int), f"VALUE has invalid type: {type(value)}"
     value = str(value).encode("UTF-8")
     return str(len(value)).encode("UTF-8"), "i", value
 
@@ -16,7 +16,7 @@ def _a_encode_long(value, mapping):
     """
     42 --> ('2', 'J', '42')
     """
-    assert isinstance(value, long), "VALUE has invalid type: %s" % type(value)
+    assert isinstance(value, long), f"VALUE has invalid type: {type(value)}"
     value = str(value).encode("UTF-8")
     return str(len(value)).encode("UTF-8"), "J", value
 
@@ -25,7 +25,7 @@ def _a_encode_float(value, mapping):
     """
     4.2 --> ('3', 'f', '4.2')
     """
-    assert isinstance(value, float), "VALUE has invalid type: %s" % type(value)
+    assert isinstance(value, float), f"VALUE has invalid type: {type(value)}"
     value = str(value).encode("UTF-8")
     return str(len(value)).encode("UTF-8"), "f", value
 
@@ -34,7 +34,7 @@ def _a_encode_unicode(value, mapping):
     """
     'foo-bar' --> ('7', 's', 'foo-bar')
     """
-    assert isinstance(value, unicode), "VALUE has invalid type: %s" % type(value)
+    assert isinstance(value, unicode), f"VALUE has invalid type: {type(value)}"
     value = value.encode("UTF-8")
     return str(len(value)).encode("UTF-8"), "s", value
 
@@ -43,7 +43,7 @@ def _a_encode_bytes(value, mapping):
     """
     'foo-bar' --> ('7', 'b', 'foo-bar')
     """
-    assert isinstance(value, bytes), "VALUE has invalid type: %s" % type(value)
+    assert isinstance(value, bytes), f"VALUE has invalid type: {type(value)}"
     return str(len(value)).encode("UTF-8"), "b", value
 
 
@@ -51,7 +51,7 @@ def _a_encode_list(values, mapping):
     """
     [1,2,3] --> ['3', 'l', '1', 'i', '1', '1', 'i', '2', '1', 'i', '3']
     """
-    assert isinstance(values, list), "VALUE has invalid type: %s" % type(values)
+    assert isinstance(values, list), f"VALUE has invalid type: {type(values)}"
     encoded = [str(len(values)).encode("UTF-8"), "l"]
     extend = encoded.extend
     for value in values:
@@ -63,7 +63,7 @@ def _a_encode_set(values, mapping):
     """
     [1,2,3] --> ['3', 'l', '1', 'i', '1', '1', 'i', '2', '1', 'i', '3']
     """
-    assert isinstance(values, set), "VALUE has invalid type: %s" % type(values)
+    assert isinstance(values, set), f"VALUE has invalid type: {type(values)}"
     encoded = [str(len(values)).encode("UTF-8"), "L"]
     extend = encoded.extend
     for value in values:
@@ -75,7 +75,7 @@ def _a_encode_tuple(values, mapping):
     """
     (1,2) --> ['2', 't', '1', 'i', '1', '1', 'i', '2']
     """
-    assert isinstance(values, tuple), "VALUE has invalid type: %s" % type(values)
+    assert isinstance(values, tuple), f"VALUE has invalid type: {type(values)}"
     encoded = [str(len(values)).encode("UTF-8"), "t"]
     extend = encoded.extend
     for value in values:
@@ -87,7 +87,7 @@ def _a_encode_dictionary(values, mapping):
     """
     {'foo':'bar', 'moo':'milk'} --> ['2', 'd', '3', 's', 'foo', '3', 's', 'bar', '3', 's', 'moo', '4', 's', 'milk']
     """
-    assert isinstance(values, dict), "VALUE has invalid type: %s" % type(values)
+    assert isinstance(values, dict), f"VALUE has invalid type: {type(values)}"
     encoded = [str(len(values)).encode("UTF-8"), "d"]
     extend = encoded.extend
     for key, value in sorted(values.items()):
@@ -325,8 +325,8 @@ def decode(stream, offset=0):
     Only version 'a' decoding is supported.  This version is
     indicated by the first byte in the binary STREAM.
     """
-    assert isinstance(stream, bytes), "STREAM has invalid type: %s" % type(stream)
-    assert isinstance(offset, int), "OFFSET has invalid type: %s" % type(offset)
+    assert isinstance(stream, bytes), f"STREAM has invalid type: {type(stream)}"
+    assert isinstance(offset, int), f"OFFSET has invalid type: {type(offset)}"
     if stream[offset] == "a":
         index = offset + 1
         while 48 <= ord(stream[index]) <= 57:

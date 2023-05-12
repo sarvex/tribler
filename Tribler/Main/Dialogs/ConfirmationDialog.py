@@ -46,7 +46,7 @@ class ConfirmationDialog(wx.Dialog):
 
     def OnConfirm(self, event):
         if self.checkbox.GetValue():
-            GUIUtility.getInstance().WriteGuiSetting('show_%s' % self.GetName(), False)
+            GUIUtility.getInstance().WriteGuiSetting(f'show_{self.GetName()}', False)
         self.EndModal(wx.ID_OK)
 
     def OnCancel(self, event):

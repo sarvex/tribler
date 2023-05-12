@@ -453,30 +453,31 @@ class EmbeddedPlayerPanel(wx.Panel):
     @warnWxThread
     def UpdateSlider(self, evt):
         # Boudewijn, 26/05/09: when using the external player we do not have a vlcwrap
-        if self.vlcwrap and self.update:
-            if self.GetState() not in [MEDIASTATE_ENDED, MEDIASTATE_STOPPED]:
+        if not self.vlcwrap or not self.update:
+            return
+        if self.GetState() not in [MEDIASTATE_ENDED, MEDIASTATE_STOPPED]:
 
-                length = self.vlcwrap.get_stream_information_length()
-                length = length / 1000 if length > 0 else self.videoplayer.get_vod_duration(self.download_hash)
-                cur = self.vlcwrap.get_media_position() / 1000
-                if length and self.timeoffset:
-                    cur += self.timeoffset
+            length = self.vlcwrap.get_stream_information_length()
+            length = length / 1000 if length > 0 else self.videoplayer.get_vod_duration(self.download_hash)
+            cur = self.vlcwrap.get_media_position() / 1000
+            if length and self.timeoffset:
+                cur += self.timeoffset
 
-                if cur >= 0 and length:
-                    self.slider.SetValue(float(cur) / length)
+            if cur >= 0 and length:
+                self.slider.SetValue(float(cur) / length)
 
-                cur_str = self.FormatTime(float(cur)) if cur >= 0 else '--:--'
-                length_str = self.FormatTime(length) if length else '--:--'
-                self.timeposition.SetLabel('%s / %s' % (cur_str, length_str))
-                self.ctrlsizer.Layout()
-            elif self.GetState() == MEDIASTATE_ENDED:
-                download, fileindex = (self.videoplayer.get_vod_download(), self.videoplayer.get_vod_fileindex())
-                self.OnStop(None)
-                if download:
-                    self.notifier.notify(NTFY_TORRENTS, NTFY_VIDEO_ENDED, (
-                        download.get_def().get_infohash(), fileindex))
-                if self.fullscreenwindow:
-                    self._ToggleFullScreen()
+            cur_str = self.FormatTime(float(cur)) if cur >= 0 else '--:--'
+            length_str = self.FormatTime(length) if length else '--:--'
+            self.timeposition.SetLabel(f'{cur_str} / {length_str}')
+            self.ctrlsizer.Layout()
+        elif self.GetState() == MEDIASTATE_ENDED:
+            download, fileindex = (self.videoplayer.get_vod_download(), self.videoplayer.get_vod_fileindex())
+            self.OnStop(None)
+            if download:
+                self.notifier.notify(NTFY_TORRENTS, NTFY_VIDEO_ENDED, (
+                    download.get_def().get_infohash(), fileindex))
+            if self.fullscreenwindow:
+                self._ToggleFullScreen()
 
     def FormatTime(self, s):
         longformat = time.strftime('%d:%H:%M:%S', time.gmtime(s))

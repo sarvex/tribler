@@ -12,7 +12,7 @@ class SimpleCache(object):
         self._logger = logging.getLogger(self.__class__.__name__)
         self._file_path = file_path
 
-        self._cache_list = list()
+        self._cache_list = []
         self._initial_cache_size = 0
 
     def add(self, key):
@@ -30,7 +30,7 @@ class SimpleCache(object):
             except Exception as e:
                 self._logger.error(u"Failed to load cache file %s: %s", self._file_path, repr(e))
         else:
-            self._cache_list = list()
+            self._cache_list = []
         self._initial_cache_size = len(self._cache_list)
 
     def save(self):

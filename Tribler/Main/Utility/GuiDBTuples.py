@@ -82,10 +82,7 @@ class Helper(object):
         return not self.__eq__(other)
 
     def __getstate__(self):
-        statedict = {}
-        for key in self.__slots__:
-            statedict[key] = getattr(self, key, None)
-        return statedict
+        return {key: getattr(self, key, None) for key in self.__slots__}
 
     def __setstate__(self, statedict):
         for key, value in statedict.iteritems():
@@ -141,8 +138,9 @@ class Torrent(Helper):
     def channel(self):
         self._logger.debug("Torrent: fetching getMostPopularChannelFromTorrent from DB %s", self)
 
-        channel = self.channelcast_db.getMostPopularChannelFromTorrent(self.infohash)
-        if channel:
+        if channel := self.channelcast_db.getMostPopularChannelFromTorrent(
+            self.infohash
+        ):
             self.channeltorrents_id = channel[-1]
             return Channel(*channel[:-1])
 
@@ -158,8 +156,9 @@ class Torrent(Helper):
             # ChannelTorrents already have channeltorrents_ids, so don't try to load it because the loaded one
             # may be wrong
             if self.channeltorrents_id is None:
-                channel = self.channelcast_db.getMostPopularChannelFromTorrent(self.infohash)
-                if channel:
+                if channel := self.channelcast_db.getMostPopularChannelFromTorrent(
+                    self.infohash
+                ):
                     self.channeltorrents_id = channel[-1]
 
             self.metadata_dict = self.channelcast_db.get_torrent_metadata(self.channeltorrents_id)
@@ -216,16 +215,12 @@ class Torrent(Helper):
         if self.magnetstatus:
             if self.magnetstatus[2]:
                 return 3
-            if self.magnetstatus[1]:
-                return 2
-            return 1
+            return 2 if self.magnetstatus[1] else 1
         return 0
 
     @property
     def progress(self):
-        if self.ds:
-            return self.ds.get_progress()
-        return 0.0
+        return self.ds.get_progress() if self.ds else 0.0
 
     @property
     def ds(self):
@@ -280,11 +275,17 @@ class Torrent(Helper):
 
     # Required for drag and drop
     def __getstate__(self):
-        statedict = {}
-        for key in Torrent.__slots__:
-            if key not in ['download_state', 'channelcast_db', 'torrent_db', 'metadata_dict']:
-                statedict[key] = getattr(self, key, None)
-        return statedict
+        return {
+            key: getattr(self, key, None)
+            for key in Torrent.__slots__
+            if key
+            not in [
+                'download_state',
+                'channelcast_db',
+                'torrent_db',
+                'metadata_dict',
+            ]
+        }
 
     @staticmethod
     def fromTorrentDef(tdef):
@@ -331,9 +332,7 @@ class CollectedTorrent(Helper):
             delattr(self.torrent, name)
 
     def __contains__(self, key):
-        if key in self.__slots__:
-            return True
-        return key in self.torrent
+        return True if key in self.__slots__ else key in self.torrent
 
     @cacheProperty
     def swarminfo(self):
@@ -373,7 +372,11 @@ class CollectedTorrent(Helper):
     @cacheProperty
     def largestvideofile(self):
         if len(self.videofiles) > 0:
-            _, filename = max([(size, filename) for filename, size in self.files if filename in self.videofiles])
+            _, filename = max(
+                (size, filename)
+                for filename, size in self.files
+                if filename in self.videofiles
+            )
             return filename
 
     @cacheProperty
@@ -386,7 +389,7 @@ class CollectedTorrent(Helper):
         for filename, length in self.files:
             prefix, ext = os.path.splitext(filename)
             if not ext.startswith('.'):
-                ext = '.' + ext
+                ext = f'.{ext}'
             if ext in VLC_SUPPORTED_SUBTITLES:
                 subtitles.append(filename)
         return subtitles
@@ -462,8 +465,9 @@ class ChannelTorrent(Torrent):
         from Tribler.Main.vwxGUI import PLAYLIST_REQ_COLUMNS
         self._logger.debug("ChannelTorrent: fetching getPlaylistForTorrent from DB %s", self)
 
-        playlist = self.channelcast_db.getPlaylistForTorrent(self.channeltorrent_id, PLAYLIST_REQ_COLUMNS)
-        if playlist:
+        if playlist := self.channelcast_db.getPlaylistForTorrent(
+            self.channeltorrent_id, PLAYLIST_REQ_COLUMNS
+        ):
             return Playlist(*playlist + (self.channel,))
 
     # Required for drag and drop
@@ -618,9 +622,7 @@ class Comment(Helper):
     def name(self):
         if self.peer_id is None:
             return self.get_nickname()
-        if not self._name:
-            return 'Peer %d' % self.peer_id
-        return self._name
+        return 'Peer %d' % self.peer_id if not self._name else self._name
 
     def isMyComment(self):
         return self.peer_id is None
@@ -682,8 +684,7 @@ class Playlist(Helper):
         # No description, get swarmnames
         searchManager = ChannelManager.getInstance()
         _, _, torrents = searchManager.getTorrentsFromPlaylist(self, limit=3)
-        names = [torrent.name for torrent in torrents]
-        if len(names) > 0:
+        if names := [torrent.name for torrent in torrents]:
             return "Contents: '" + "'    '".join(names) + "'"
         elif self.channel.isOpen():
             return 'This playlist is currently empty, drag and drop any .torrent to add it to this playlist.'

@@ -78,11 +78,10 @@ class TorrentMigrator64(object):
             try:
                 os.mkdir(self.tmp_migration_dir)
             except OSError as e:
-                msg = u"Failed to create temporary torrent collecting migration directory %s: %s" %\
-                      (self.tmp_migration_dir, e)
+                msg = f"Failed to create temporary torrent collecting migration directory {self.tmp_migration_dir}: {e}"
                 raise OSError(msg)
         elif not os.path.isdir(self.tmp_migration_dir):
-            msg = u"The temporary torrent collecting migration path is not a directory: %s" % self.tmp_migration_dir
+            msg = f"The temporary torrent collecting migration path is not a directory: {self.tmp_migration_dir}"
             raise RuntimeError(msg)
 
         if not os.path.isdir(self.torrent_collecting_dir):
@@ -118,7 +117,7 @@ class TorrentMigrator64(object):
                 else:
                     self.total_torrent_file_count += 1
                 self.total_file_count += 1
-                self.status_update_func(u"Getting file count: %s..." % self.total_file_count)
+                self.status_update_func(f"Getting file count: {self.total_file_count}...")
             # We don't want to walk through the child directories
             break
 
@@ -172,7 +171,13 @@ class TorrentMigrator64(object):
                 file_path = os.path.join(root, name)
                 try:
                     tdef = TorrentDef.load(file_path)
-                    move(file_path, os.path.join(self.tmp_migration_dir, hexlify(tdef.infohash) + u".torrent"))
+                    move(
+                        file_path,
+                        os.path.join(
+                            self.tmp_migration_dir,
+                            f"{hexlify(tdef.infohash)}.torrent",
+                        ),
+                    )
                     self.torrent_files_migrated += 1
                 except Exception as e:
                     self._logger.error(u"dropping corrupted torrent file %s: %s", file_path, str(e))

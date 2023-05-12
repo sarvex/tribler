@@ -218,12 +218,8 @@ class TorrentChecker(TaskManager):
             self._logger.warn(u"no torrent_id, skip GUI request. infohash: %s", hexlify(infohash))
             return
 
-        # get torrent's tracker list from DB
-        tracker_set = set()
         db_tracker_list = self._torrent_db.getTrackerListByTorrentID(torrent_id)
-        for tracker in db_tracker_list:
-            tracker_set.add(tracker)
-
+        tracker_set = set(db_tracker_list)
         if not tracker_set:
             self._logger.warn(u"no trackers, skip GUI request. infohash: %s", hexlify(infohash))
             # TODO: add code to handle torrents with no tracker
@@ -239,10 +235,7 @@ class TorrentChecker(TaskManager):
 
         current_time = int(time.time())
 
-        session_dict = {}
-        for session in self._session_list:
-            session_dict[session.socket] = session
-
+        session_dict = {session.socket: session for session in self._session_list}
         # >> Step 1: Check the sockets
         self._logger.debug(u"got %d writable sockets, %d readable sockets",
                            len(write_socket_list), len(read_socket_list))
@@ -319,21 +312,18 @@ class TorrentChecker(TaskManager):
         check_read_socket_list = []
         check_write_socket_list = []
 
-        session_dict = {}
-        for session in self._session_list:
-            session_dict[session.socket] = session
-
+        session_dict = {session.socket: session for session in self._session_list}
         for session_socket, session in session_dict.iteritems():
             if session.tracker_type == u'DHT':
                 # FakeDHTSession doesn't really have a socket as it uses LibtorrentMgr's DHT
                 continue
-            if session.tracker_type == u'UDP':
-                check_read_socket_list.append(session_socket)
+            if (
+                session.tracker_type != u'UDP'
+                and session.action == TRACKER_ACTION_CONNECT
+            ):
+                check_write_socket_list.append(session_socket)
             else:
-                if session.action == TRACKER_ACTION_CONNECT:
-                    check_write_socket_list.append(session_socket)
-                else:
-                    check_read_socket_list.append(session_socket)
+                check_read_socket_list.append(session_socket)
 
         # return select socket lists
         return check_read_socket_list, check_write_socket_list

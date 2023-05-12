@@ -62,10 +62,9 @@ def uniconvertl(l, e):
     uniconvert. """
     r = []
     try:
-        for s in l:
-            r.append(uniconvert(s, e))
+        r.extend(uniconvert(s, e) for s in l)
     except UnicodeError:
-        raise UnicodeError('bad filename: ' + os.path.join(l))
+        raise UnicodeError(f'bad filename: {os.path.join(l)}')
     return r
 
 
@@ -77,7 +76,7 @@ def uniconvert(s, enc):
         try:
             s = bin2unicode(s, enc)
         except UnicodeError:
-            raise UnicodeError('bad filename: ' + s)
+            raise UnicodeError(f'bad filename: {s}')
     return s.encode(enc)
 
 
@@ -104,11 +103,10 @@ def makeinfo(input, userabortflag, userprogresscallback):
         if os.path.isdir(inpath):
             dirsubs = subfiles(inpath)
             subs.extend(dirsubs)
+        elif outpath is None:
+            subs.append(([os.path.basename(inpath)], inpath))
         else:
-            if outpath is None:
-                subs.append(([os.path.basename(inpath)], inpath))
-            else:
-                subs.append((filename2pathlist(outpath, skipfirst=True), inpath))
+            subs.append((filename2pathlist(outpath, skipfirst=True), inpath))
 
     subs.sort()
 
@@ -138,42 +136,39 @@ def makeinfo(input, userabortflag, userprogresscallback):
     for p, f, size in subs:
         pos = 0
 
-        h = open(f, 'rb')
+        with open(f, 'rb') as h:
+            while pos < size:
+                a = min(size - pos, piece_length - done)
 
-        while pos < size:
-            a = min(size - pos, piece_length - done)
+                # See if the user cancelled
+                if userabortflag is not None and userabortflag.isSet():
+                    return None, None
 
-            # See if the user cancelled
-            if userabortflag is not None and userabortflag.isSet():
-                return None, None
+                readpiece = h.read(a)
 
-            readpiece = h.read(a)
+                # See if the user cancelled
+                if userabortflag is not None and userabortflag.isSet():
+                    return None, None
 
-            # See if the user cancelled
-            if userabortflag is not None and userabortflag.isSet():
-                return None, None
+                sh.update(readpiece)
 
-            sh.update(readpiece)
+                done += a
+                pos += a
+                totalhashed += a
 
-            done += a
-            pos += a
-            totalhashed += a
+                if done == piece_length:
+                    pieces.append(sh.digest())
+                    done = 0
+                    sh = sha1()
 
-            if done == piece_length:
-                pieces.append(sh.digest())
-                done = 0
-                sh = sha1()
+                if userprogresscallback is not None:
+                    userprogresscallback(float(totalhashed) / float(totalsize))
 
-            if userprogresscallback is not None:
-                userprogresscallback(float(totalhashed) / float(totalsize))
+            newdict = {'length': num2num(size),
+                       'path': uniconvertl(p, encoding),
+                       'path.utf-8': uniconvertl(p, 'utf-8')}
 
-        newdict = {'length': num2num(size),
-                   'path': uniconvertl(p, encoding),
-                   'path.utf-8': uniconvertl(p, 'utf-8')}
-
-        fs.append(newdict)
-
-        h.close()
+            fs.append(newdict)
 
     if done > 0:
         pieces.append(sh.digest())
@@ -194,12 +189,13 @@ def makeinfo(input, userabortflag, userprogresscallback):
             l = filename2pathlist(outpath)
             name = l[0]
 
-    infodict = {'piece length': num2num(piece_length),
-                flkey: flval,
-                'name': uniconvert(name, encoding),
-                'name.utf-8': uniconvert(name, 'utf-8')}
-
-    infodict.update({'pieces': ''.join(pieces)})
+    infodict = {
+        'piece length': num2num(piece_length),
+        flkey: flval,
+        'name': uniconvert(name, encoding),
+        'name.utf-8': uniconvert(name, 'utf-8'),
+        'pieces': ''.join(pieces),
+    }
 
     return infodict, piece_length
 
@@ -212,9 +208,11 @@ def subfiles(d):
     while stack:
         p, n = stack.pop()
         if os.path.isdir(n):
-            for s in os.listdir(n):
-                if s[:1] != '.':
-                    stack.append((copy(p) + [s], os.path.join(n, s)))
+            stack.extend(
+                (copy(p) + [s], os.path.join(n, s))
+                for s in os.listdir(n)
+                if s[:1] != '.'
+            )
         else:
             r.append((p, n))
     return r
@@ -257,27 +255,23 @@ def pathlist2savefilename(pathlist, encoding):
 
 def num2num(num):
     """ Converts long to int if small enough to fit """
-    if isinstance(num, LongType) and num < sys.maxint:
-        return int(num)
-    else:
-        return num
+    return int(num) if isinstance(num, LongType) and num < sys.maxint else num
 
 
 def get_length_from_metainfo(metainfo, selectedfiles):
     if 'files' not in metainfo['info']:
         # single-file torrent
         return metainfo['info']['length']
-    else:
-        # multi-file torrent
-        files = metainfo['info']['files']
+    # multi-file torrent
+    files = metainfo['info']['files']
 
-        total = 0
-        for i in xrange(len(files)):
-            path = files[i]['path']
-            length = files[i]['length']
-            if length > 0 and (not selectedfiles or pathlist2filename(path) in selectedfiles):
-                total += length
-        return total
+    total = 0
+    for i in xrange(len(files)):
+        path = files[i]['path']
+        length = files[i]['length']
+        if length > 0 and (not selectedfiles or pathlist2filename(path) in selectedfiles):
+            total += length
+    return total
 
 
 def get_length_filepieceranges_from_metainfo(metainfo, selectedfiles):
@@ -285,28 +279,27 @@ def get_length_filepieceranges_from_metainfo(metainfo, selectedfiles):
     if 'files' not in metainfo['info']:
         # single-file torrent
         return metainfo['info']['length'], None
-    else:
-        # multi-file torrent
-        files = metainfo['info']['files']
-        piecesize = metainfo['info']['piece length']
+    # multi-file torrent
+    files = metainfo['info']['files']
+    piecesize = metainfo['info']['piece length']
 
-        offset = 0
-        total = 0
-        filepieceranges = []
-        for i in xrange(len(files)):
-            path = files[i]['path']
-            length = files[i]['length']
-            filename = pathlist2filename(path)
+    offset = 0
+    total = 0
+    filepieceranges = []
+    for i in xrange(len(files)):
+        path = files[i]['path']
+        length = files[i]['length']
+        filename = pathlist2filename(path)
 
-            if length > 0 and (not selectedfiles or (selectedfiles and filename in selectedfiles)):
-                range = (offset2piece(offset, piecesize, False),
-                         offset2piece(offset + length, piecesize),
-                         (offset - offset2piece(offset, piecesize, False) * piecesize),
-                         filename)
-                filepieceranges.append(range)
-                total += length
-            offset += length
-        return total, filepieceranges
+        if length > 0 and (not selectedfiles or filename in selectedfiles):
+            range = (offset2piece(offset, piecesize, False),
+                     offset2piece(offset + length, piecesize),
+                     (offset - offset2piece(offset, piecesize, False) * piecesize),
+                     filename)
+            filepieceranges.append(range)
+            total += length
+        offset += length
+    return total, filepieceranges
 
 
 def copy_metainfo_to_input(metainfo, input):

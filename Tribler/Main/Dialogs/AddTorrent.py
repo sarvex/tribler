@@ -105,12 +105,8 @@ class AddTorrent(wx.Dialog):
                 self.EndModal(wx.ID_OK)
 
     def __processPaths(self, paths):
-        filenames = []
-        for filename in paths:
-            if filename.endswith('.torrent'):
-                filenames.append(filename)
-
-        cancel = len(filenames) == 0
+        filenames = [filename for filename in paths if filename.endswith('.torrent')]
+        cancel = not filenames
         if len(filenames) > 10:
             warning = wx.MessageDialog(self, "This will add %d .torrents, are you sure?" %
                                        len(filenames), "Please confirm Add", wx.OK | wx.CANCEL | wx.ICON_WARNING)

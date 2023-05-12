@@ -6,8 +6,9 @@ class LevelDB(object):
         self._db = plyvel.DB(store_dir, create_if_missing=create_if_missing)
 
     def Get(self, key, verify_checksums=False, fill_cache=True):
-        val = self._db.get(key, verify_checksums=verify_checksums, fill_cache=fill_cache)
-        if val:
+        if val := self._db.get(
+            key, verify_checksums=verify_checksums, fill_cache=fill_cache
+        ):
             return val
         raise KeyError('No value for key {key}'.format(key=key))
 

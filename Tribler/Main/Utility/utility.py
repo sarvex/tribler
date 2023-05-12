@@ -124,8 +124,7 @@ def round_range(x):
             value = int(round(value / 150.0) * 150)
 
         returnar.add(value)
-    returnar = sorted(returnar)
-    return returnar
+    return sorted(returnar)
 
 
 def eta_value(n, truncate=3):
@@ -151,25 +150,25 @@ def eta_value(n, truncate=3):
     if week > 0:
         text = weekstr
         if truncate > 1:
-            text += u":" + daystr
+            text += f":{daystr}"
         if truncate > 2:
-            text += u"-" + hourstr
+            text += f"-{hourstr}"
     elif day > 0:
         text = daystr
         if truncate > 1:
-            text += u"-" + hourstr
+            text += f"-{hourstr}"
         if truncate > 2:
-            text += u":" + minutestr
+            text += f":{minutestr}"
     elif hour > 0:
         text = hourstr
         if truncate > 1:
-            text += u":" + minutestr
+            text += f":{minutestr}"
         if truncate > 2:
-            text += u":" + secstr
+            text += f":{secstr}"
     else:
         text = minutestr
         if truncate > 1:
-            text += u":" + secstr
+            text += f":{secstr}"
 
     return text
 
@@ -215,7 +214,7 @@ def size_format(s, truncate=None, stopearly=None, applylabel=True, rawsize=False
         text = (u'%.2f' % size)
 
     if applylabel:
-        text += u' ' + label
+        text += f' {label}'
 
     return text
 
@@ -229,16 +228,22 @@ def get_download_upload_speed(dslist):
 
 
 def initialize_x11_threads():
-    if sys.platform == 'linux2' and os.environ.get("TRIBLER_INITTHREADS", "true").lower() == "true":
-        for module in ['wx', 'wxversion', 'Tribler.vlc', 'vlc']:
-            assert module not in sys.modules, "Called initialize_x11_threads after importing X related module: %s" % module
-        try:
-            import ctypes
-            x11 = ctypes.cdll.LoadLibrary('libX11.so.6')
-            if not x11.XInitThreads():
-                logger.error("Failed to initialize XInitThreads")
-            os.environ["TRIBLER_INITTHREADS"] = "False"
-        except OSError as e:
-            logger.error("Failed to call XInitThreads '%s'", str(e))
-        except Exception as e:
-            logger.exception("Failed to call xInitThreads: '%s'", repr(e))
+    if (
+        sys.platform != 'linux2'
+        or os.environ.get("TRIBLER_INITTHREADS", "true").lower() != "true"
+    ):
+        return
+    for module in ['wx', 'wxversion', 'Tribler.vlc', 'vlc']:
+        assert (
+            module not in sys.modules
+        ), f"Called initialize_x11_threads after importing X related module: {module}"
+    try:
+        import ctypes
+        x11 = ctypes.cdll.LoadLibrary('libX11.so.6')
+        if not x11.XInitThreads():
+            logger.error("Failed to initialize XInitThreads")
+        os.environ["TRIBLER_INITTHREADS"] = "False"
+    except OSError as e:
+        logger.error("Failed to call XInitThreads '%s'", str(e))
+    except Exception as e:
+        logger.exception("Failed to call xInitThreads: '%s'", repr(e))

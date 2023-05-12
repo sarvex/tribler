@@ -43,13 +43,13 @@ class Category(object):
         self.set_family_filter(None)
 
     # return Category instance
-    def getInstance(*args, **kw):
+    def getInstance(self, **kw):
         if Category.__single is None:
-            Category(*args, **kw)
+            Category(*self, **kw)
         return Category.__single
     getInstance = staticmethod(getInstance)
 
-    def delInstance(*args, **kw):
+    def delInstance(self, **kw):
         Category.__single = None
     delInstance = staticmethod(delInstance)
 
@@ -74,8 +74,10 @@ class Category(object):
         files_list = []
         try:
             # the multi-files mode
-            for ifiles in torrent_dict['info']["files"]:
-                files_list.append((ifiles['path'][-1], ifiles['length'] / float(self.__size_change)))
+            files_list.extend(
+                (ifiles['path'][-1], ifiles['length'] / float(self.__size_change))
+                for ifiles in torrent_dict['info']["files"]
+            )
         except KeyError:
             # single mode
             files_list.append(
@@ -127,7 +129,7 @@ class Category(object):
                 factor *= 1 - category['keywords'][ikeywords]
             except:
                 pass
-        if (1 - factor) > 0.5:
+        if factor < 1 - 0.5:
             if 'strength' in category:
                 return (True, category['strength'])
             else:
@@ -142,12 +144,7 @@ class Category(object):
             if length < category['minfilesize'] or 0 < category['maxfilesize'] < length:
                 continue
 
-            # judge file suffix
-            OK = False
-            for isuffix in category['suffix']:
-                if name.lower().endswith(isuffix):
-                    OK = True
-                    break
+            OK = any(name.lower().endswith(isuffix) for isuffix in category['suffix'])
             if OK:
                 matchSize += length
                 continue
@@ -207,16 +204,17 @@ class Category(object):
 
     def get_family_filter_sql(self):
         if self.family_filter_enabled():
-            forbiddencats = [cat['name'] for cat in self.category_info if cat['rank'] == -1]
-            if forbiddencats:
-                return " and category not in (%s)" % ','.join(["'%s'" % cat for cat in forbiddencats])
+            if forbiddencats := [
+                cat['name'] for cat in self.category_info if cat['rank'] == -1
+            ]:
+                return f""" and category not in ({','.join([f"'{cat}'" for cat in forbiddencats])})"""
         return ''
 
 
 def cmp_rank(a, b):
-    if not ('rank' in a):
+    if 'rank' not in a:
         return 1
-    elif not ('rank' in b):
+    elif 'rank' not in b:
         return -1
     elif a['rank'] == -1:
         return 1

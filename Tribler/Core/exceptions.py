@@ -17,7 +17,7 @@ class TriblerException(Exception):
         Exception.__init__(self, msg)
 
     def __str__(self):
-        return str(self.__class__) + ': ' + Exception.__str__(self)
+        return f'{str(self.__class__)}: {Exception.__str__(self)}'
 
 
 class OperationNotPossibleAtRuntimeException(TriblerException):

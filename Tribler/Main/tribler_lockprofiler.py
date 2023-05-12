@@ -65,12 +65,8 @@ def lock_profile(frame, event, arg):
 
             if index == 0:
                 for otherthread in stats[lockobj]:
-                    if otherthread != name:
-                        if stats[lockobj][otherthread][6]:
-                            logger.info("%s waiting for lock acquired by %s", name, otherthread)
-                            if False and hasattr(threadlocal, "lines"):
-                                for line in threadlocal.lines:
-                                    logger.info("\t%s", line)
+                    if otherthread != name and stats[lockobj][otherthread][6]:
+                        logger.info("%s waiting for lock acquired by %s", name, otherthread)
 
 if __name__ == '__main__':
     sys.setprofile(lock_profile)

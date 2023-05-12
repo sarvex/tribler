@@ -25,7 +25,7 @@ class ChannelObject(TaskManager):
         self._is_created = is_created
         self._rss_feed_dict = collections.OrderedDict()
 
-        rss_name = u"channel_rss_%s.json" % hexlify(self._channel_community.cid)
+        rss_name = f"channel_rss_{hexlify(self._channel_community.cid)}.json"
         self._rss_file_path = os.path.join(self._session.get_state_dir(), rss_name)
 
     @property
@@ -37,7 +37,7 @@ class ChannelObject(TaskManager):
         return self._channel_community.get_channel_name()
 
     def get_rss_feed_url_list(self):
-        return [url for url in self._rss_feed_dict.iterkeys()]
+        return list(self._rss_feed_dict.iterkeys())
 
     @call_on_reactor_thread
     def initialize(self):
@@ -85,7 +85,7 @@ class ChannelObject(TaskManager):
                 rss_parser.initialize()
                 self._rss_feed_dict[rss_feed_url] = rss_parser
 
-        task_name = u'create_rss_%s' % hexlify(channel_data[u'channel'].cid)
+        task_name = f"create_rss_{hexlify(channel_data['channel'].cid)}"
         self.register_task(task_name, reactor.callLater(0, _create_rss_feed, channel_data))
 
     @call_on_reactor_thread
@@ -105,7 +105,7 @@ class ChannelObject(TaskManager):
 
         # flush the rss_feed_url to json file
         with codecs.open(self._rss_file_path, 'wb', encoding='utf8') as f:
-            rss_list = [rss_url for rss_url in self._rss_feed_dict.iterkeys()]
+            rss_list = list(self._rss_feed_dict.iterkeys())
             json.dump(rss_list, f)
 
     @call_on_reactor_thread

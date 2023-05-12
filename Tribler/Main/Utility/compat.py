@@ -74,7 +74,7 @@ def convertMainConfig(state_dir, oldfilename, newfilename):
     guifilename = os.path.join(state_dir, 'gui_settings')
     if os.path.exists(guifilename):
         with open(guifilename, "r") as f:
-            for line in f.readlines():
+            for line in f:
                 key, value = line.split('=')
                 config.set('Tribler', key, value.strip())
         os.remove(guifilename)
@@ -84,9 +84,9 @@ def convertMainConfig(state_dir, oldfilename, newfilename):
     if os.path.exists(histfilename):
         with open(histfilename, "r") as f:
             history = []
-            for line in f.readlines():
+            for line in f:
                 key, value = line.split('=')
-                if value != '' and value != '\n':
+                if value not in ['', '\n']:
                     history.append(value.replace('\\\\', '\\').strip())
             config.set('Tribler', 'recent_download_history', json.dumps(history))
         os.remove(histfilename)
@@ -119,28 +119,29 @@ def convertDefaultDownloadConfig(oldfilename, newfilename):
 def convertDownloadCheckpoints(checkpoint_dir):
     # Convert tribler <= 6.2 download checkpoints to tribler 6.3
 
-    if os.path.exists(checkpoint_dir):
-        for old_filename in glob.glob(os.path.join(checkpoint_dir, '*.pickle')):
-            old_checkpoint = None
-            try:
-                with open(old_filename, "rb") as old_file:
-                    old_checkpoint = pickle.load(old_file)
-            except:
-                pass
+    if not os.path.exists(checkpoint_dir):
+        return
+    for old_filename in glob.glob(os.path.join(checkpoint_dir, '*.pickle')):
+        old_checkpoint = None
+        try:
+            with open(old_filename, "rb") as old_file:
+                old_checkpoint = pickle.load(old_file)
+        except:
+            pass
 
-            if old_checkpoint:
-                new_checkpoint = RawConfigParser()
-                new_checkpoint.add_section('downloadconfig')
-                new_checkpoint.add_section('state')
-                for key, value in old_checkpoint['dlconfig'].iteritems():
-                    if key in ['saveas', 'max_upload_rate', 'max_download_rate', 'super_seeder', 'mode',
-                               'selected_files', 'correctedfilename']:
-                        new_checkpoint.set('downloadconfig', key, value)
-                new_checkpoint.set('state', 'version', PERSISTENTSTATE_CURRENTVERSION)
-                new_checkpoint.set('state', 'engineresumedata', old_checkpoint['engineresumedata'])
-                new_checkpoint.set('state', 'dlstate', old_checkpoint['dlstate'])
-                new_checkpoint.set('state', 'metainfo', old_checkpoint['metainfo'])
-                with open(old_filename.replace('.pickle', '.state'), "wb") as new_file:
-                    new_checkpoint.write(new_file)
+        if old_checkpoint:
+            new_checkpoint = RawConfigParser()
+            new_checkpoint.add_section('downloadconfig')
+            new_checkpoint.add_section('state')
+            for key, value in old_checkpoint['dlconfig'].iteritems():
+                if key in ['saveas', 'max_upload_rate', 'max_download_rate', 'super_seeder', 'mode',
+                           'selected_files', 'correctedfilename']:
+                    new_checkpoint.set('downloadconfig', key, value)
+            new_checkpoint.set('state', 'version', PERSISTENTSTATE_CURRENTVERSION)
+            new_checkpoint.set('state', 'engineresumedata', old_checkpoint['engineresumedata'])
+            new_checkpoint.set('state', 'dlstate', old_checkpoint['dlstate'])
+            new_checkpoint.set('state', 'metainfo', old_checkpoint['metainfo'])
+            with open(old_filename.replace('.pickle', '.state'), "wb") as new_file:
+                new_checkpoint.write(new_file)
 
-            os.remove(old_filename)
+        os.remove(old_filename)

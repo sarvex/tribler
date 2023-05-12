@@ -22,10 +22,7 @@ except ImportError:
 
 
 def init(addr, conf_path):
-    if DEBUG:
-        log_level = logging.DEBUG
-    else:
-        log_level = logging.ERROR
+    log_level = logging.DEBUG if DEBUG else logging.ERROR
     logger.debug(u"DHT initialization %s", DHT_IMPORTED)
 
     if DHT_IMPORTED:

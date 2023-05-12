@@ -442,7 +442,7 @@ class TriblerLaunchMany(TaskManager):
     def load_download_pstate_noexc(self, infohash):
         """ Called by any thread, assume sesslock already held """
         try:
-            basename = binascii.hexlify(infohash) + '.state'
+            basename = f'{binascii.hexlify(infohash)}.state'
             filename = os.path.join(self.session.get_downloads_pstate_dir(), basename)
             if os.path.exists(filename):
                 return self.load_download_pstate(filename)
@@ -466,7 +466,7 @@ class TriblerLaunchMany(TaskManager):
                 tdef = TorrentDef.load_from_dict(metainfo)
 
             if pstate.has_option('downloadconfig', 'saveas') and \
-                    isinstance(pstate.get('downloadconfig', 'saveas'), tuple):
+                        isinstance(pstate.get('downloadconfig', 'saveas'), tuple):
                 pstate.set('downloadconfig', 'saveas', pstate.get('downloadconfig', 'saveas')[-1])
 
             dscfg = DownloadStartupConfig(pstate)
@@ -477,16 +477,14 @@ class TriblerLaunchMany(TaskManager):
 
             infohash = binascii.unhexlify(file[:-6])
 
-            torrent_data = self.torrent_store.get(infohash)
-            if torrent_data:
+            if torrent_data := self.torrent_store.get(infohash):
                 tdef = TorrentDef.load_from_memory(torrent_data)
 
                 defaultDLConfig = DefaultDownloadStartupConfig.getInstance()
                 dscfg = defaultDLConfig.copy()
 
                 if self.mypref_db is not None:
-                    dest_dir = self.mypref_db.getMyPrefStatsInfohash(infohash)
-                    if dest_dir:
+                    if dest_dir := self.mypref_db.getMyPrefStatsInfohash(infohash):
                         if os.path.isdir(dest_dir) or dest_dir == '':
                             dscfg.set_dest_dir(dest_dir)
 
@@ -571,7 +569,7 @@ class TriblerLaunchMany(TaskManager):
                 # Remove checkpoint
                 hexinfohash = binascii.hexlify(infohash)
                 try:
-                    basename = hexinfohash + '.state'
+                    basename = f'{hexinfohash}.state'
                     filename = os.path.join(dlpstatedir, basename)
                     self._logger.debug("remove pstate: removing dlcheckpoint entry %s", filename)
                     if os.access(filename, os.F_OK):
@@ -582,6 +580,7 @@ class TriblerLaunchMany(TaskManager):
             else:
                 self._logger.warning("remove pstate: download is back, restarted? Canceling removal! %s",
                                       repr(infohash))
+
         self.threadpool.add_task(do_remove)
 
     def early_shutdown(self):
@@ -685,7 +684,7 @@ class TriblerLaunchMany(TaskManager):
 
     def save_download_pstate(self, infohash, pstate):
         """ Called by network thread """
-        basename = binascii.hexlify(infohash) + '.state'
+        basename = f'{binascii.hexlify(infohash)}.state'
         filename = os.path.join(self.session.get_downloads_pstate_dir(), basename)
 
         self._logger.debug("tlm: network checkpointing: to file %s", filename)

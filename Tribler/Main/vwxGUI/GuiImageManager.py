@@ -123,11 +123,11 @@ class GuiImageManager(object):
         self._logger.debug(u"Start loading country flag images.")
 
         if not os.path.exists(self.FLAG_SUBDIR):
-            msg = u"Flags dir doesn't exist %s" % self.FLAG_SUBDIR
+            msg = f"Flags dir doesn't exist {self.FLAG_SUBDIR}"
             self._logger.error(msg)
             raise Exception(msg)
         if not os.path.isdir(self.FLAG_SUBDIR):
-            msg = u"Not a dir %s" % self.FLAG_SUBDIR
+            msg = f"Not a dir {self.FLAG_SUBDIR}"
             self._logger.error(msg)
             raise Exception(msg)
 
@@ -137,12 +137,12 @@ class GuiImageManager(object):
                 flag_path = os.path.join(self.FLAG_SUBDIR, flag)
 
                 if not os.path.isfile(flag_path):
-                    msg = u"Not a file %s" % flag_path
+                    msg = f"Not a file {flag_path}"
                     self._logger.error(msg)
                     continue
-                
+
                 if not flag.endswith(u".png"):
-                    msg = u"Not a PNG file %s" % flag_path
+                    msg = f"Not a PNG file {flag_path}"
                     self._logger.error(msg)
                     continue
 
@@ -151,7 +151,7 @@ class GuiImageManager(object):
                 # Size check for flag images.
                 if bitmap.GetWidth() != 16 or bitmap.GetHeight() != 11:
                     msg = u"Country flag[%s] is of size [%dx%d], NOT [%dx%d]." %\
-                          (flag, bitmap.GetWidth(), bitmap.GetHeight(), 16, 11)
+                              (flag, bitmap.GetWidth(), bitmap.GetHeight(), 16, 11)
                     self._logger.error(msg)
                     raise Exception(msg)
 
@@ -169,11 +169,10 @@ class GuiImageManager(object):
             dimension = dimension or ICON_MAX_DIM
             image = self._default_dict[name].get(dimension, None)
             if image is None:
-                msg = u"Default image is not loaded [%s]." % name
+                msg = f"Default image is not loaded [{name}]."
                 self._logger.error(msg)
                 raise Exception(msg)
 
-        # other image
         else:
             image = self._other_dict.get(name, None)
             if image is None:
@@ -181,11 +180,11 @@ class GuiImageManager(object):
                 # lazy load
                 image_path = os.path.join(self.IMAGE_SUBDIR, name)
                 if not os.path.exists(image_path):
-                    msg = u"Image[%s] doesn't exist." % image_path
+                    msg = f"Image[{image_path}] doesn't exist."
                     self._logger.error(msg)
                     raise Exception(msg)
                 elif not os.path.isfile(image_path):
-                    msg = u"Image[%s] is not a file." % image_path
+                    msg = f"Image[{image_path}] is not a file."
                     self._logger.error(msg)
                     raise Exception(msg)
                 else:
@@ -213,7 +212,9 @@ class GuiImageManager(object):
 
     @warnWxThread
     def getBitmap(self, parent, type, background, state):
-        assert isinstance(background, wx.Colour), u"we require a wx.colour object here, got %s" % type(background)
+        assert isinstance(
+            background, wx.Colour
+        ), f"we require a wx.colour object here, got {type(background)}"
         if isinstance(background, wx.Colour):
             background = background.Get()
         else:
@@ -224,22 +225,22 @@ class GuiImageManager(object):
             icons.setdefault(background, {})
 
             def fixSize(bitmap, width, height):
-                if width != bitmap.GetWidth() or height != bitmap.GetHeight():
+                if width == bitmap.GetWidth() and height == bitmap.GetHeight():
+                    return bitmap
 
-                    bmp = wx.EmptyBitmap(width, height)
-                    dc = wx.MemoryDC(bmp)
-                    dc.SetBackground(wx.Brush(background))
-                    dc.Clear()
+                bmp = wx.EmptyBitmap(width, height)
+                dc = wx.MemoryDC(bmp)
+                dc.SetBackground(wx.Brush(background))
+                dc.Clear()
 
-                    offset_x = (width - bitmap.GetWidth()) / 2
-                    offset_y = (height - bitmap.GetHeight()) / 2
+                offset_x = (width - bitmap.GetWidth()) / 2
+                offset_y = (height - bitmap.GetHeight()) / 2
 
-                    dc.DrawBitmap(bitmap, offset_x, offset_y)
-                    dc.SelectObject(wx.NullBitmap)
-                    del dc
+                dc.DrawBitmap(bitmap, offset_x, offset_y)
+                dc.SelectObject(wx.NullBitmap)
+                del dc
 
-                    return bmp
-                return bitmap
+                return bmp
 
             # create both icons
             icons[background][0] = self.__createBitmap(parent, background, type, 0)

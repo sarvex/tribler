@@ -203,9 +203,7 @@ class TopSearchPanel(FancyPanel):
         newValue = min(self.go.GetValue() + 1, maxValue)
         self.guiutility.frame.top_bg.go.SetValue(newValue)
 
-        if newValue == maxValue:
-            return True
-        return False
+        return newValue == maxValue
 
     def SetFinished(self):
         self.Freeze()
@@ -245,16 +243,17 @@ class TopSearchPanel(FancyPanel):
         if page in ['search_results', 'selectedchannel', 'playlist', 'my_files']:
             list = self.guiutility.GetSelectedPage()
             items = list.GetExpandedItems()
-            torrents = [item[1].original_data for item in items if isinstance(item[1].original_data, Torrent)
-                        or isinstance(item[1].original_data, CollectedTorrent)]
+            torrents = [
+                item[1].original_data
+                for item in items
+                if isinstance(item[1].original_data, (Torrent, CollectedTorrent))
+            ]
         return torrents
 
     def TorrentsChanged(self):
         self.RefreshTorrents(self.GetSelectedTorrents())
 
     def RefreshTorrents(self, torrents):
-        inDownloads = self.guiutility.guiPage == 'my_files'
-
         if torrents:
             isMultiple = len(torrents) > 1
             usedCollectedTorrents = set()
@@ -262,6 +261,8 @@ class TopSearchPanel(FancyPanel):
             # download, stop seeding, stop downloading, delete, or play
             # TODO(emilon): This is so ugly. At least we should use a named tuple.
             states = [0, 0, 0, 0, 0, 0, 0]
+            inDownloads = self.guiutility.guiPage == 'my_files'
+
             for torrent in torrents:
                 if 'stopped' in torrent.state:
                     if 'completed' in torrent.state:
@@ -291,8 +292,7 @@ class TopSearchPanel(FancyPanel):
                     # If the torrent isn't collected we assume its playable and let the core cancel the VOD if it isn't.
                     states[6] += 1
 
-            enableDownload = states[1] + states[2]
-            if enableDownload:
+            if enableDownload := states[1] + states[2]:
                 if isMultiple:
                     self.SetButtonHandler(
                         self.download_btn,
@@ -306,8 +306,7 @@ class TopSearchPanel(FancyPanel):
             else:
                 self.SetButtonHandler(self.download_btn, None)
 
-            enableUpload = states[0]
-            if enableUpload:
+            if enableUpload := states[0]:
                 if isMultiple:
                     self.SetButtonHandler(
                         self.upload_btn,
@@ -319,8 +318,7 @@ class TopSearchPanel(FancyPanel):
             else:
                 self.SetButtonHandler(self.upload_btn, None)
 
-            enableStop = states[3] + states[4]
-            if enableStop:
+            if enableStop := states[3] + states[4]:
                 if isMultiple:
                     self.SetButtonHandler(self.stop_btn, self.OnStop, 'Stop %d torrent(s).' % enableStop)
                 elif states[3]:
@@ -448,15 +446,14 @@ class TopSearchPanel(FancyPanel):
                 refresh_library = True
 
         if not silent:
-            if dlg.newName:
-                if dlg.newName.IsChanged():
-                    dlg2 = wx.MessageDialog(None, 'Do you want to save your changes made to this torrent?',
-                                            'Save changes?', wx.YES_NO | wx.YES_DEFAULT | wx.ICON_QUESTION)
-                    if dlg2.ShowModal() == wx.ID_YES:
-                        self.guiutility.channelsearch_manager.modifyTorrent(torrent.channel.id,
-                                                                            torrent.channeltorrent_id,
-                                                                            {'name': dlg.newName.GetValue()})
-                    dlg2.Destroy()
+            if dlg.newName and dlg.newName.IsChanged():
+                dlg2 = wx.MessageDialog(None, 'Do you want to save your changes made to this torrent?',
+                                        'Save changes?', wx.YES_NO | wx.YES_DEFAULT | wx.ICON_QUESTION)
+                if dlg2.ShowModal() == wx.ID_YES:
+                    self.guiutility.channelsearch_manager.modifyTorrent(torrent.channel.id,
+                                                                        torrent.channeltorrent_id,
+                                                                        {'name': dlg.newName.GetValue()})
+                dlg2.Destroy()
             dlg.Destroy()
 
         if refresh_library:

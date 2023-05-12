@@ -39,8 +39,7 @@ def _checkVersion(self):
             # "KEY:VALUE\n" format
             pattern = re.compile("^\s*(?<!#)\s*([^:\s]+)\s*:\s*(.+?)\s*$")
             for line in curr_status[2:]:
-                match = pattern.match(line)
-                if match:
+                if match := pattern.match(line):
                     key, value = match.group(1, 2)
                     if key in info:
                         info[key] += "\n" + value
@@ -55,13 +54,13 @@ def _checkVersion(self):
 
             # Boudewijn: start some background downloads to
             # upgrade on this separate thread
-            if len(info) > 0:
+            if info:
                 self._upgradeVersion(my_version, self.curr_version, info)
             else:
                 self._manualUpgrade(my_version, self.curr_version, self.update_url)
 
-        # Also check new version of web2definitions for youtube etc. search
-        # Web2Updater(self.utility).checkUpdate()
+            # Also check new version of web2definitions for youtube etc. search
+            # Web2Updater(self.utility).checkUpdate()
     except Exception as e:
         self._logger.error("Tribler: Version check failed %s %s", time.ctime(time.time()), str(e))
         # print_exc()
@@ -69,8 +68,8 @@ def _checkVersion(self):
 
 def _upgradeVersion(self, my_version, latest_version, info):
     # check if there is a .torrent for our OS
-    torrent_key = "torrent-%s" % sys.platform
-    notes_key = "notes-txt-%s" % sys.platform
+    torrent_key = f"torrent-{sys.platform}"
+    notes_key = f"notes-txt-{sys.platform}"
     if torrent_key in info:
         self._logger.info("-- Upgrade %s -> %s", my_version, latest_version)
         notes = []
@@ -196,23 +195,12 @@ def _manualUpgrade(self, my_version, latest_version, url):
 def newversion(self, curr_version, my_version):
     curr = curr_version.split('.')
     my = my_version.split('.')
-    if len(my) >= len(curr):
-        nversion = len(my)
-    else:
-        nversion = len(curr)
+    nversion = max(len(my), len(curr))
     for i in range(nversion):
-        if i < len(my):
-            my_v = int(my[i])
-        else:
-            my_v = 0
-        if i < len(curr):
-            curr_v = int(curr[i])
-        else:
-            curr_v = 0
-        if curr_v > my_v:
-            return True
-        elif curr_v < my_v:
-            return False
+        my_v = int(my[i]) if i < len(my) else 0
+        curr_v = int(curr[i]) if i < len(curr) else 0
+        if curr_v != my_v:
+            return curr_v > my_v
     return False
 
 

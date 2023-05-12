@@ -49,8 +49,8 @@ class FeedbackWindow(wx.PyOnDemandOutputWindow):
                 self.sysInfo.SetStringItem(pos, 1, val)
 
             # data
-            add('os.getcwd', '%s' % os.getcwd())
-            add('sys.executable', '%s' % sys.executable)
+            add('os.getcwd', f'{os.getcwd()}')
+            add('sys.executable', f'{sys.executable}')
 
             add('os', os.name)
             add('platform', sys.platform)
@@ -60,27 +60,15 @@ class FeedbackWindow(wx.PyOnDemandOutputWindow):
             add('indebug', str(__debug__))
 
             for argv in sys.argv:
-                add('sys.argv', '%s' % argv)
+                add('sys.argv', f'{argv}')
 
             for path in sys.path:
-                add('sys.path', '%s' % path)
+                add('sys.path', f'{path}')
 
-            for key in os.environ.keys():
-                add('os.environ', '%s: %s' % (key, os.environ[key]))
+            for key in os.environ:
+                add('os.environ', f'{key}: {os.environ[key]}')
 
-            # read tribler.log?
-#            try:
-#
-#                f = codecs.open(os.path.join(Globals.options.profileDir,
-#                                             'chandler.log'),
-#                                encoding='utf-8', mode='r', errors='ignore')
-#                for line in f.readlines()[-LOGLINES:]:
-#                    self.frame.sysInfo.InsertStringItem(index, 'chandler.log')
-#                    self.frame.sysInfo.SetStringItem(index, 1, '%s' % line.strip())
-#                    index += 1
-#            except:
-#                pass
-
+                # read tribler.log?
         except:
             pass
 
@@ -189,17 +177,16 @@ class FeedbackWindow(wx.PyOnDemandOutputWindow):
         try:
             c = httplib.HTTPConnection('dispersyreporter.tribler.org')
 
-            email = 'Not provided'
-            if self.email.GetValue():
-                email = self.email.GetValue()
-
+            email = self.email.GetValue() if self.email.GetValue() else 'Not provided'
             comments = 'Not provided'
             if self.comments.GetValue():
                 comments = self.comments.GetValue()
 
-            body_dict = {'email': email, 'comments': comments}
-            body_dict['stack'] = self.text.GetValue()
-
+            body_dict = {
+                'email': email,
+                'comments': comments,
+                'stack': self.text.GetValue(),
+            }
             optional = ''
             for i in range(self.sysInfo.GetItemCount()):
                 field = self.sysInfo.GetItem(i, 0).GetText()
@@ -213,7 +200,7 @@ class FeedbackWindow(wx.PyOnDemandOutputWindow):
             response = c.getresponse()
 
             if response.status != 200:
-                raise Exception('response.status=' + response.status)
+                raise Exception(f'response.status={response.status}')
             c.close()
         except:
             self.sendButton.SetLabel('Failed to send')

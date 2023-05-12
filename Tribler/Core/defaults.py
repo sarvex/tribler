@@ -3,6 +3,7 @@
 # see LICENSE.txt for license information
 
 """ Default values for all configurarable parameters of the Core"""
+
 #
 # For an explanation of each parameter, see SessionConfig/DownloadConfig.py
 #
@@ -174,25 +175,18 @@ dldefaults['downloadconfig']['seeding_mode'] = 'ratio'
 dldefaults['downloadconfig']['seeding_ratio'] = 2.0
 dldefaults['downloadconfig']['seeding_time'] = 60
 
-tdefdictdefaults = {}
-tdefdictdefaults['comment'] = None
-tdefdictdefaults['created by'] = None
-tdefdictdefaults['announce'] = None
-tdefdictdefaults['announce-list'] = None
-tdefdictdefaults['nodes'] = None  # mainline DHT
-tdefdictdefaults['httpseeds'] = None
-tdefdictdefaults['url-list'] = None
-tdefdictdefaults['encoding'] = None
-
-tdefmetadefaults = {}
-tdefmetadefaults['version'] = 1
-tdefmetadefaults['piece length'] = 0
-
-TDEF_DEFAULTS = {}
-TDEF_DEFAULTS.update(tdefdictdefaults)
-TDEF_DEFAULTS.update(tdefmetadefaults)
-
-
+tdefdictdefaults = {
+    'comment': None,
+    'created by': None,
+    'announce': None,
+    'announce-list': None,
+    'nodes': None,
+    'httpseeds': None,
+    'url-list': None,
+    'encoding': None,
+}
+tdefmetadefaults = {'version': 1, 'piece length': 0}
+TDEF_DEFAULTS = tdefdictdefaults | tdefmetadefaults
 # Tribler defaults
 tribler_defaults = OrderedDict()
 tribler_defaults['Tribler'] = OrderedDict()

@@ -75,10 +75,10 @@ class TrackerSession(object):
         self._is_timed_out = False
 
     def __str__(self):
-        return "Tracker[%s, %s]" % (self._tracker_type, self._tracker_url)
+        return f"Tracker[{self._tracker_type}, {self._tracker_url}]"
 
     def __unicode__(self):
-        return u"Tracker[%s, %s]" % (self._tracker_type, self._tracker_url)
+        return f"Tracker[{self._tracker_type}, {self._tracker_url}]"
 
     def cleanup(self):
         if self._socket is not None:
@@ -238,11 +238,7 @@ class HttpTrackerSession(TrackerSession):
         #       if there is already a parameter available
         message = 'GET '
         message += '/' + self._announce_page.replace(u'announce', u'scrape')
-        if message.find('?') == -1:
-            message += '?'
-        else:
-            message += '&'
-
+        message += '?' if '?' not in message else '&'
         # append the infohashes as parameters
         for infohash in self._infohash_list:
             message += 'info_hash='
@@ -310,14 +306,10 @@ class HttpTrackerSession(TrackerSession):
             else:
                 self._is_failed = True
 
-        # wait for more
-        else:
-            pass
-
     def _process_header(self):
         # get and check HTTP response code
         protocol, code, msg = self._header_buffer.split(' ', 2)
-        if code == '301' or code == '302':
+        if code in ['301', '302']:
             idx = self._header_buffer.find('Location: ')
             if idx == -1:
                 self._is_failed = True
@@ -335,15 +327,14 @@ class HttpTrackerSession(TrackerSession):
                     if tracker_type != self._tracker_type:
                         raise RuntimeError(u"cannot redirect to a different tracker type: %s", new_location)
 
-                    else:
-                        self._logger.debug(u"%s being redirected to %s", self, new_location)
+                    self._logger.debug(u"%s being redirected to %s", self, new_location)
 
-                        self._tracker_address = tracker_address
-                        self._announce_page = announce_page
-                        self._socket.close()
-                        self._socket = None
+                    self._tracker_address = tracker_address
+                    self._announce_page = announce_page
+                    self._socket.close()
+                    self._socket = None
 
-                        self.recreate_connection()
+                    self.recreate_connection()
 
                 except RuntimeError as run_err:
                     self._logger.info(u"%s: Runtime Error: %s, address: %s, announce: %s",
@@ -508,7 +499,7 @@ class UdpTrackerSession(TrackerSession):
         if action != self._action or transaction_id != self._transaction_id:
             # get error message
             errmsg_length = len(response) - 8
-            error_message = struct.unpack_from('!' + str(errmsg_length) + 's', response, 8)
+            error_message = struct.unpack_from(f'!{str(errmsg_length)}s', response, 8)
 
             self._logger.info(u"%s Error response for UDP CONNECT [%s]: %s",
                               self, repr(response), repr(error_message))
@@ -556,8 +547,7 @@ class UdpTrackerSession(TrackerSession):
         if action != self._action or transaction_id != self._transaction_id:
             # get error message
             errmsg_length = len(response) - 8
-            error_message = \
-                struct.unpack_from('!' + str(errmsg_length) + 's', response, 8)
+            error_message = struct.unpack_from(f'!{str(errmsg_length)}s', response, 8)
 
             self._logger.info(u"%s Error response for UDP SCRAPE: [%s] [%s]",
                               self, repr(response), repr(error_message))

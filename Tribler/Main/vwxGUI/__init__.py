@@ -78,7 +78,7 @@ VLC_SUPPORTED_SUBTITLES = ['.cdg', '.idx', '.srt', '.sub', '.utf', '.ass',
 
 def format_time(val):
     try:
-        today = datetime.today()
+        today = datetime.now()
         discovered = datetime.fromtimestamp(val)
 
         diff = today - discovered
@@ -106,7 +106,7 @@ def warnWxThread(func):
     def invoke_func(*args, **kwargs):
         if not wx.Thread_IsMain():
             caller = inspect.stack()[1]
-            callerstr = "%s %s:%s" % (caller[3], caller[1], caller[2])
+            callerstr = f"{caller[3]} {caller[1]}:{caller[2]}"
             logger.warn("%s NOT ON GUITHREAD %s %s:%s called by %s", long(time()),
                         func.__name__, func.func_code.co_filename, func.func_code.co_firstlineno, callerstr)
 
@@ -123,7 +123,7 @@ def forceWxThread(func):
         else:
             if TRHEADING_DEBUG:
                 caller = inspect.stack()[1]
-                callerstr = "%s %s:%s" % (caller[3], caller[1], caller[2])
+                callerstr = f"{caller[3]} {caller[1]}:{caller[2]}"
                 logger.debug("%s SWITCHING TO GUITHREAD %s %s:%s called by %s", long(time()),
                              func.__name__, func.func_code.co_filename, func.func_code.co_firstlineno, callerstr)
             wx.CallAfter(func, *args, **kwargs)
@@ -137,30 +137,29 @@ def forceAndReturnWxThread(func):
         if wx.Thread_IsMain():
             return func(*args, **kwargs)
 
-        else:
-            if TRHEADING_DEBUG:
-                caller = inspect.stack()[1]
-                callerstr = "%s %s:%s" % (caller[3], caller[1], caller[2])
-                logger.debug("%s SWITCHING TO GUITHREAD %s %s:%s called by %s", long(time()),
-                             func.__name__, func.func_code.co_filename, func.func_code.co_firstlineno, callerstr)
+        if TRHEADING_DEBUG:
+            caller = inspect.stack()[1]
+            callerstr = f"{caller[3]} {caller[1]}:{caller[2]}"
+            logger.debug("%s SWITCHING TO GUITHREAD %s %s:%s called by %s", long(time()),
+                         func.__name__, func.func_code.co_filename, func.func_code.co_firstlineno, callerstr)
 
-            event = Event()
+        event = Event()
 
-            result = [None]
+        result = [None]
 
-            def wx_thread():
-                try:
-                    result[0] = func(*args, **kwargs)
-                finally:
-                    event.set()
+        def wx_thread():
+            try:
+                result[0] = func(*args, **kwargs)
+            finally:
+                event.set()
 
-            wx.CallAfter(wx_thread)
-            if event.wait(15) or event.isSet():
-                return result[0]
+        wx.CallAfter(wx_thread)
+        if event.wait(15) or event.isSet():
+            return result[0]
 
-            from traceback import print_stack
-            print_stack()
-            logger.warn("GOT TIMEOUT ON forceAndReturnWxThread %s", func.__name__)
+        from traceback import print_stack
+        print_stack()
+        logger.warn("GOT TIMEOUT ON forceAndReturnWxThread %s", func.__name__)
 
     invoke_func.__name__ = func.__name__
     return invoke_func
